@@ -1,27 +1,17 @@
-# LabOS
+# ChemLearn LabOS
 
-LabOS is a scratchpad workspace for experiments, prototypes, and lab-style notes. Use this repository to quickly spike ideas, document findings, and keep lightweight utilities in one place.
+ChemLearn LabOS is a multi-layer lab operating system for managing experiments, jobs, and datasets while coordinating scientific modules and user interfaces. This repository is currently in **Phase 0: Bootstrap**, focused on establishing structure and documentation only.
 
-## Getting Started
+## Architecture Layers
+- **LabOS Core**: orchestrates experiments, jobs, datasets, and auditability.
+- **Scientific Modules**: domain-specific extensions (e.g., PChem, EI-MS, proteomics) that plug into the core.
+- **UI Layer**: presentation shell to serve learners, lab operators, and builders.
 
-1. **Clone** the repo and open it in VS Code.
-2. **Create a virtual environment** if you plan to use Python tooling: `python -m venv .venv`.
-3. **Activate** the environment and install any experiment-specific dependencies.
+## Current Status
+This phase lays down folders, placeholder packages, and governance documentation. No scientific logic, data processing, or UI features are implemented yet.
 
-## Recommended Workflow
+## Legacy Note
+The repository previously served as a lightweight lab scratchpad. Prior notes and workflows can be referenced from historical commits as needed.
 
-- Keep each experiment or note in its own subfolder so history stays tidy.
-- Commit frequently with clear messages capturing the experiment context.
-- Clean up intermediate artifacts (datasets, build outputs) or add them to `.gitignore`.
-
-## Folder Ideas
-
-| Folder | Purpose |
-| --- | --- |
-| `notes/` | Markdown notes, logs, or checklists. |
-| `experiments/` | Self-contained spikes or PoCs. |
-| `scripts/` | Utility scripts used across experiments. |
-
-## Contributing
-
-This is your sandbox—organize it in whichever way best supports your lab work. When collaborating, align on naming, coding style, and documentation expectations up front.
+## Binary Assets
+Large artifacts exported from CODEX or similar tools must be tracked through Git Large File Storage (LFS). Install Git LFS locally, keep binaries under `artifacts/` or `datasets/`, and follow the workflow documented in `docs/BINARY_ASSET_HANDLING.md` to stay within GitHub limits.
