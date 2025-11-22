@@ -19,14 +19,27 @@ class ModuleMetadata:
     - Still an in-memory registry, but enriched with citations/limitations for the UI.
     """
 
-    key: str                 # e.g. "pchem.calorimetry"
-    display_name: str        # e.g. "Calorimetry Calculator"
-    method_name: str         # e.g. "Constant-pressure calorimetry"
-    primary_citation: str    # free-form for now
+    key: str  # e.g. "pchem.calorimetry"
+    display_name: str  # e.g. "Calorimetry Calculator"
+    method_name: str  # e.g. "Constant-pressure calorimetry"
+    primary_citation: str  # free-form for now
     dataset_citations: List[str] = field(default_factory=list)
     limitations: str = "Method stub. Educational use only. Not validated for clinical decisions."
+    limitations: str = "Educational and development only. Not validated for clinical use."
     reference_url: str = ""
     version: str = "0.1.0"
+
+    def to_dict(self) -> Dict[str, str | List[str]]:
+        return {
+            "key": self.key,
+            "display_name": self.display_name,
+            "method_name": self.method_name,
+            "primary_citation": self.primary_citation,
+            "dataset_citations": list(self.dataset_citations),
+            "limitations": self.limitations,
+            "reference_url": self.reference_url,
+            "version": self.version,
+        }
 
 
 class ModuleRegistry:
@@ -61,6 +74,7 @@ class ModuleRegistry:
                 primary_citation="See CITATIONS.md (P-Chem / Calorimetry / Thermodynamics placeholder).",
                 dataset_citations=["Phase 0 example dataset only."],
                 limitations="Method stub. Educational use only. Not validated for clinical decisions.",
+                limitations="Educational and development only. Not validated for clinical use.",
                 reference_url="https://doi.org/10.0000/placeholder-pchem",
                 version="0.1.0",
             )
@@ -73,6 +87,7 @@ class ModuleRegistry:
                 primary_citation="See CITATIONS.md (EI-MS / Mass Spectrometry placeholder).",
                 dataset_citations=["NIST-like spectral libraries (to be wired later)."],
                 limitations="Method stub. Educational use only. Not validated for clinical decisions.",
+                limitations="Educational and development only. Not validated for clinical use.",
                 reference_url="https://doi.org/10.0000/placeholder-eims",
                 version="0.1.0",
             )
@@ -85,6 +100,7 @@ class ModuleRegistry:
                 primary_citation="See CITATIONS.md (Data Import / General Data Handling placeholder).",
                 dataset_citations=["Internal onboarding datasets (Phase 2 placeholders)."],
                 limitations="Method stub. Educational use only. Not validated for clinical decisions.",
+                limitations="Educational and development only. Not validated for clinical use.",
                 reference_url="https://doi.org/10.0000/placeholder-import",
                 version="0.1.0",
             )

@@ -1,0 +1,84 @@
+{
+  "capabilities": [
+    {
+      "id": "core.experiment_model",
+      "name": "Experiment registry",
+      "description": "Dataclass-backed experiment records with JSON storage and audit hooks for create/status updates.",
+      "modules": ["labos.experiments", "labos.storage", "labos.audit"],
+      "phase": 1,
+      "status": "implemented"
+    },
+    {
+      "id": "core.dataset_registry",
+      "name": "Dataset registry",
+      "description": "File-backed dataset records capturing owner, dataset type, URI, tags, and metadata with audit emission.",
+      "modules": ["labos.datasets", "labos.storage", "labos.audit"],
+      "phase": 1,
+      "status": "implemented"
+    },
+    {
+      "id": "core.job_pipeline",
+      "name": "Job runner + registry",
+      "description": "Creates and executes jobs against registered module operations, persists results, and records audit events.",
+      "modules": ["labos.jobs", "labos.modules", "labos.audit", "labos.config"],
+      "phase": 1,
+      "status": "implemented"
+    },
+    {
+      "id": "core.module_registry",
+      "name": "Plugin loader",
+      "description": "Registers ModuleDescriptor objects and exposes operations for scientific plugins; auto-loads built-in stubs.",
+      "modules": ["labos.modules.__init__"],
+      "phase": 1,
+      "status": "implemented"
+    },
+    {
+      "id": "core.method_metadata_registry",
+      "name": "Provenance metadata",
+      "description": "In-memory ModuleMetadata registry feeding Method & Data UI surfaces with citations and limitations.",
+      "modules": ["labos.core.module_registry"],
+      "phase": 1,
+      "status": "implemented"
+    },
+    {
+      "id": "module.eims_fragmentation_stub",
+      "name": "EI-MS fragmentation stub",
+      "description": "Deterministic placeholder returning module-tagged dataset/audit payloads for EI-MS demos.",
+      "modules": ["labos.modules.eims.fragmentation_stub"],
+      "phase": 2,
+      "status": "stub"
+    },
+    {
+      "id": "module.pchem_calorimetry_stub",
+      "name": "P-Chem calorimetry stub",
+      "description": "Deterministic metadata emitter for calorimetry walkthroughs; no thermodynamics performed.",
+      "modules": ["labos.modules.pchem.calorimetry_stub"],
+      "phase": 2,
+      "status": "stub"
+    },
+    {
+      "id": "module.import_wizard_stub",
+      "name": "Import wizard stub",
+      "description": "Emits dataset/audit placeholders for data onboarding scenarios without touching real files.",
+      "modules": ["labos.modules.import_wizard.stub"],
+      "phase": 2,
+      "status": "stub"
+    },
+    {
+      "id": "ui.control_panel_modes",
+      "name": "Control Panel modes",
+      "description": "Streamlit Control Panel with Learner/Lab/Builder banners, tips, and mode-aware copy.",
+      "modules": ["labos.ui.control_panel"],
+      "phase": 1,
+      "status": "implemented"
+    },
+    {
+      "id": "ui.module_inspector",
+      "name": "Module inspector",
+      "description": "UI section exposing registered module descriptors/operations for safe inspection across modes.",
+      "modules": ["labos.ui.control_panel", "labos.modules"],
+      "phase": 1,
+      "status": "implemented"
+    }
+  ]
+}
