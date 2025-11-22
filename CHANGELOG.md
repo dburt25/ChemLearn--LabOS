@@ -31,3 +31,10 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ## [0.1.4] - 2025-11-22
 ### Added
 - Workspace / Drawing Tool section in the Control Panel with a new `labos/ui/drawing_tool.py` module providing a mode-aware scratchpad and file upload placeholder for future canvas integration.
+
+## [0.2.0] - 2025-11-22
+### Added
+- Phase 2 Wave 1: deterministic EI-MS, P-Chem, and Import Wizard stubs under `labos/modules/**` that emit structured dataset/audit metadata and register as module operations.
+- Module metadata defaults (including Import Wizard) surfaced in the Control Panel to show method names, placeholder citations, and limitations for each stub.
+### Changed
+- `tests/test_module_registry.py` now asserts the Phase 2 metadata entries and provides a lightweight Streamlit stub so registry tests run without UI dependencies.
