@@ -10,6 +10,9 @@ Use this checklist before major merges or phase transitions.
 
 ## Code & Tests
 - [ ] Lint/tests passing locally
+- [x] Initial CI workflow created – runs tests on push/PR.
+- [ ] Style checks automated (TODO)
+- [ ] Coverage reports automated (TODO)
 - [ ] Dependencies scanned for vulnerabilities (future phases)
 
 ## Compliance
