@@ -42,12 +42,29 @@ ModuleDescriptor (auto-registered)
 
 - EI-MS fragmentation, P-Chem calorimetry, and Import Wizard stubs are auto-loaded; each emits deterministic dataset/audit payloads tagged with `module_key` for downstream provenance.
 - Stubs currently mark status as `not-implemented`, signaling educational/demo use only.
+- Import Wizard helpers now provide schema inference + dataset preview structures that can be promoted into DatasetRegistry entries once jobs wire them in.
+
+## Import wizard & data provenance flow
+
+```
+Learner uploads table/sample -> Import Wizard helpers -> DatasetRef + AuditEvent -> DatasetRegistry -> Control Panel (Method & Data)
+```
+
+- Schema inference ensures downstream modules understand column intent before processing.
+- `labos.core.provenance` links imported datasets back to experiments/jobs so audits display full lineage.
+- Upcoming waves will let Jobs promote import outputs into the DatasetRegistry and show provenance inline in the UI footer.
 
 ## Data and compliance surfaces
 
 - **Storage**: JSONFileStore under `LabOSConfig` directories backs experiment/job/dataset registries; job results serialize module outputs for inspection.
 - **AuditEvent linkage**: Registries attach audit IDs to records upon create/update, enabling traceability across Experiment → Job → Dataset transitions.
 - **ModuleMetadata**: Separate from executable descriptors; supplies citations, limitations, and reference URLs for UI provenance panels.
+
+## Swarm orchestration overlay
+
+- Governance docs (`SWARM_PLAYBOOK.md`, `SWARM_PERMISSIONS_MATRIX.md`, `SWARM_STATUS.md`) coordinate which bots may touch each subsystem at any moment.
+- Permissions ensure only one bot writes to a path (e.g., `labos/ui/*`) per wave while others operate on disjoint subsystems.
+- Swarm orchestration outputs feed directly into the Control Panel roadmap and future CLI tooling so automation stays aligned with compliance rules.
 
 ## Planned extensions
 
