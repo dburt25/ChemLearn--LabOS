@@ -26,7 +26,7 @@ st: Any = cast(Any, _streamlit)
 
 from labos.config import LabOSConfig
 from labos.core.errors import NotFoundError
-from labos.core.module_registry import ModuleRegistry as MetadataRegistry
+from labos.core.module_registry import ModuleMetadata, ModuleRegistry as MetadataRegistry
 from labos.core.workflows import run_module_job
 from labos.datasets import Dataset
 from labos.experiments import Experiment
@@ -129,6 +129,18 @@ def _is_builder(mode: str) -> bool:
     return mode == "Builder"
 
 
+def is_learner() -> bool:
+    return _is_learner(st.session_state.get("mode", MODES[0]))
+
+
+def is_lab() -> bool:
+    return _is_lab(st.session_state.get("mode", MODES[0]))
+
+
+def is_builder() -> bool:
+    return _is_builder(st.session_state.get("mode", MODES[0]))
+
+
 def _render_mode_banner(
     experiments: Sequence[Experiment],
     datasets: Sequence[Dataset],
@@ -193,6 +205,79 @@ def _dataset_preview_text(dataset: Dataset) -> str:
     if schema_preview:
         return _truncate(json.dumps(schema_preview, default=str), length=160)
     return "Schema preview pending ingestion."
+
+
+def show_experiment_explanation() -> None:
+    st.info(
+        "**Experiment** — the umbrella for related jobs and datasets. It records the study's goal, owner, and status"
+        " so you can trace every run back to its intent."
+    )
+
+
+def show_job_explanation() -> None:
+    st.info(
+        "**Job** — a single execution of a module with parameters and linked datasets. Jobs report status so learners"
+        " can see when work started, succeeded, or failed."
+    )
+
+
+def show_module_explanation() -> None:
+    st.info(
+        "**Module** — an encapsulated scientific method. Modules publish operations, citations, and limitations so"
+        " you understand what computation is being performed."
+    )
+
+
+def show_calorimetry_equations() -> None:
+    st.markdown(
+        """
+        **Calorimetry refresher**
+
+        - Heat transfer: **q = m · c · ΔT**
+        - Temperature change: **ΔT = T_final – T_initial**
+        - Variables: *q* (heat), *m* (mass of sample), *c* (specific heat capacity), *ΔT* (observed temperature shift).
+
+        The calorimetry module estimates heat exchanged for a sample using these relationships and records the run as a
+        reproducible job with linked dataset and audit trail.
+        """
+    )
+
+
+def show_method_metadata(meta: ModuleMetadata | None) -> None:
+    if not meta:
+        st.caption("Method metadata unavailable for this module.")
+        return
+
+    st.markdown("**Method & Data**")
+    st.markdown(f"- **Method:** {meta.method_name}")
+    st.markdown(f"- **Citation:** {meta.primary_citation or 'Not specified'}")
+    st.markdown(f"- **Limitations:** {meta.limitations or 'Not specified'}")
+    st.caption(f"Version: {meta.version} • Reference: {meta.reference_url or 'Not provided'}")
+
+
+def show_calorimetry_method_snippet(meta: ModuleMetadata | None, dataset_id: str | None) -> None:
+    method_name = meta.method_name if meta else "Calorimetry estimation"
+    dataset_label = dataset_id or "dataset pending"
+    st.caption(f"Method & Data: {method_name} • Output dataset: {dataset_label}")
+
+
+def show_calorimetry_raw_data(
+    experiment_payload: Mapping[str, object] | None,
+    job_payload: Mapping[str, object] | None,
+    dataset_payload: Mapping[str, object] | None,
+    audit_payload: Sequence[Mapping[str, object]] | None,
+    meta: ModuleMetadata | None,
+) -> None:
+    if st.checkbox("Show Experiment JSON", key="calorimetry_show_experiment"):
+        st.json(experiment_payload or {"message": "No experiment payload captured."})
+    if st.checkbox("Show Job JSON", key="calorimetry_show_job"):
+        st.json(job_payload or {"message": "No job payload captured."})
+    if st.checkbox("Show Dataset JSON", key="calorimetry_show_dataset"):
+        st.json(dataset_payload or {"message": "No dataset payload captured."})
+    if st.checkbox("Show Audit JSON", key="calorimetry_show_audit"):
+        st.json(list(audit_payload or []))
+    if st.checkbox("Show Module Metadata", key="calorimetry_show_metadata"):
+        st.json(meta.to_dict() if meta else {"message": "No metadata found for pchem.calorimetry."})
 
 
 def _job_dataset_ids(job: Job) -> list[str]:
@@ -685,10 +770,85 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
                     st.caption("Full dataset record with IDs and typed fields exposed for ingestion debugging.")
                     st.json(ds_obj.to_dict())
 
+def _render_calorimetry_results(
+    payload: Mapping[str, object], meta: ModuleMetadata | None, mode: str
+) -> None:
+    st.markdown("#### Results")
 
-def _render_pchem_calorimetry_runner() -> None:
+    experiment_payload = cast(Mapping[str, object] | None, payload.get("experiment"))
+    job_payload = cast(Mapping[str, object] | None, payload.get("job"))
+    dataset_payload = cast(Mapping[str, object] | None, payload.get("dataset"))
+    audit_payload = cast(Sequence[Mapping[str, object]] | None, payload.get("audit_events"))
+
+    params = cast(Mapping[str, object], (job_payload or {}).get("params") or {})
+    delta_t = params.get("delta_t")
+    heat_capacity = params.get("heat_capacity")
+    sample_id = params.get("sample_id")
+
+    dataset_id = cast(str | None, (dataset_payload or {}).get("id"))
+    job_id = cast(str | None, (job_payload or {}).get("id"))
+    experiment_name = cast(str | None, (experiment_payload or {}).get("name")) or cast(
+        str | None, (experiment_payload or {}).get("id")
+    )
+
+    summary_rows = [
+        {
+            "Experiment": experiment_name or "Pending",
+            "Job": job_id or "Pending",
+            "Sample": sample_id or "N/A",
+            "Delta T (C)": delta_t if delta_t is not None else "N/A",
+            "Heat Capacity": heat_capacity if heat_capacity is not None else "N/A",
+            "Dataset": dataset_id or "Pending",
+            "Status": (job_payload or {}).get("status", "completed"),
+        }
+    ]
+
+    st.dataframe(summary_rows, hide_index=True, use_container_width=True)
+
+    if _is_learner(mode):
+        st.info(
+            "Calorimetry results capture experiment, job, and dataset IDs so you can follow the provenance chain."
+            " Parameters are echoed back for easy comparison against expected lab values."
+        )
+
+    if _is_lab(mode):
+        show_calorimetry_method_snippet(meta, dataset_id)
+    else:
+        show_method_metadata(meta)
+
+    if _is_learner(mode):
+        st.markdown(
+            "**Method & Data panel** — ties together the scientific method, its citation, and the output dataset so"
+            " new operators understand what was computed."
+        )
+
+    if _is_builder(mode):
+        st.markdown("##### Debug views")
+        st.caption("Toggle JSON payloads to debug registry wiring and workflow results.")
+        show_calorimetry_raw_data(experiment_payload, job_payload, dataset_payload, audit_payload, meta)
+
+
+def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str) -> None:
+    meta = meta_registry.get("pchem.calorimetry")
+
     st.markdown("#### Run Calorimetry Workflow (beta)")
-    st.caption("Creates an experiment + job, calls the PChem calorimetry stub, and emits dataset/audit metadata.")
+    if _is_learner(mode):
+        st.caption(
+            "Learner mode explains each part of the workflow before you run it."
+        )
+    else:
+        st.caption("Creates an experiment + job, calls the PChem calorimetry stub, and emits dataset/audit metadata.")
+
+    if _is_builder(mode):
+        with st.expander("Module metadata (registry)", expanded=False):
+            st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
+
+    if _is_learner(mode):
+        st.markdown("##### How this workflow is structured")
+        show_experiment_explanation()
+        show_job_explanation()
+        show_module_explanation()
+        show_calorimetry_equations()
 
     default_name = st.session_state.get("pchem_default_experiment")
     if not default_name:
@@ -722,12 +882,15 @@ def _render_pchem_calorimetry_runner() -> None:
             else:
                 dataset_label = result.dataset.id if result.dataset else "dataset-pending"
                 st.success(f"Job {result.job.id} completed; produced {dataset_label}.")
-                st.session_state.pchem_last_workflow = result.to_dict()
+                st.session_state.pchem_last_workflow = {"payload": result.to_dict()}
 
     last_payload = st.session_state.get("pchem_last_workflow")
-    if last_payload:
-        with st.expander("Latest calorimetry workflow payload", expanded=False):
-            st.json(last_payload)
+    payload = None
+    if isinstance(last_payload, Mapping):
+        payload = cast(Mapping[str, object] | None, last_payload.get("payload") or last_payload)
+
+    if payload:
+        _render_calorimetry_results(payload, meta, mode)
 
 
 def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
@@ -796,7 +959,7 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         st.write("_No operations registered._")
 
     if descriptor.module_id == "pchem.calorimetry":
-        _render_pchem_calorimetry_runner()
+        _render_pchem_calorimetry_runner(metadata_registry, mode)
 
     if _is_builder(mode):
         st.markdown("#### Debug payloads")
