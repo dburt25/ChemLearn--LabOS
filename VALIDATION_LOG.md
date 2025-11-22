@@ -15,3 +15,4 @@ Document scientific validation activities once numerical or analytical logic shi
 | 2025-11-22T08:11:34Z | Testing Suite | Phase 2 – Added core object invariants, module stub smoke tests, and registry metadata coverage. | `python -m pytest tests` (stub outputs only; no real physics/ingestion performed) |
 | 2025-11-22T14:00:00Z | Workflow helpers | Desk check: instantiated `create_experiment_with_job`, attached datasets, and emitted audit events for manual inspection. | Manual interactive session |
 | 2025-11-22T15:00:00Z | Workspace / Drawing Tool | Manual Streamlit run confirmed notes, upload field, and experiment tag input render with mode-aware guidance and summary. | `streamlit run app.py` (manual UI check) |
+| 2025-11-22T15:00:00Z | Import provenance | Added provenance linkage tests for import wizard stub and workflow helpers. | `python -m unittest tests.test_import_provenance tests.test_scientific_modules` |
