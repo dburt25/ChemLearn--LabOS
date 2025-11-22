@@ -9,6 +9,8 @@ from .audit import AuditEvent
 from .datasets import DatasetRef
 from .experiments import Experiment
 from .jobs import Job
+from .provenance import link_job_to_dataset, register_import_result
+from labos.modules.import_wizard.stub import run_import_stub
 
 
 def _utc_now() -> datetime:
@@ -105,3 +107,53 @@ def log_event_for_job(
         created_at=_utc_now().replace(tzinfo=None),
         details=payload,
     )
+
+
+def _dataset_from_dict(payload: Dict[str, object]) -> DatasetRef:
+    created_at = payload.get("created_at")
+    if isinstance(created_at, str):
+        try:
+            parsed = datetime.fromisoformat(created_at)
+        except ValueError:
+            parsed = _utc_now()
+    else:
+        parsed = _utc_now()
+
+    return DatasetRef(
+        id=str(payload.get("id")),
+        label=str(payload.get("label")),
+        kind=str(payload.get("kind", "table")),
+        created_at=parsed,
+        path_hint=payload.get("path_hint"),
+        metadata=dict(payload.get("metadata", {})),
+    )
+
+
+def run_import_workflow(params: Dict[str, object]) -> Dict[str, object]:
+    """Run the import stub and return provenance-aware payloads."""
+
+    module_output = run_import_stub(params)
+    dataset_payload = module_output.get("dataset") or {}
+    dataset_ref = _dataset_from_dict(dataset_payload)
+
+    experiment_id = params.get("experiment_id")
+    job_id = params.get("job_id")
+    provenance = register_import_result(
+        str(experiment_id) if experiment_id is not None else None,
+        str(job_id) if job_id is not None else None,
+        dataset_ref,
+    )
+
+    extra_events: List[Dict[str, object]] = provenance.get("audit_events", [])
+    audit_records: List[Dict[str, object]] = []
+    audit_from_module = module_output.get("audit")
+    if isinstance(audit_from_module, dict):
+        audit_records.append(audit_from_module)
+    audit_records.extend(extra_events)
+
+    return {
+        "module_output": module_output,
+        "dataset": provenance["dataset"],
+        "audit_events": audit_records,
+        "links": provenance.get("links", {}),
+    }
