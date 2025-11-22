@@ -11,3 +11,4 @@ Document scientific validation activities once numerical or analytical logic shi
 | 2025-11-22T12:32:00Z | Control Panel UI | Phase 1 – Control Panel renders without error. | `python -m unittest tests.test_module_registry.ControlPanelSmokeTest` |
 | 2025-11-22T13:00:00Z | Module Registry | Phase 2 – Wave 1 stubs registered (EI-MS, P-Chem, Import Wizard) and metadata tests pass. | `python -m unittest tests.test_module_registry` |
 | 2025-11-22T12:40:00Z | Control Panel Workspace | Verified the new Workspace / Drawing Tool section renders in Learner/Lab/Builder modes via `streamlit run app.py` smoke test. | Manual Streamlit run |
+| 2025-11-22T14:00:00Z | Import Wizard & Provenance | Added in-memory schema inference, dataset ref generation, and provenance helpers; basic functional checks expected. | Desk review / manual invocation |
