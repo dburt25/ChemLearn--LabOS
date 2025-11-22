@@ -38,3 +38,10 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Module metadata defaults (including Import Wizard) surfaced in the Control Panel to show method names, placeholder citations, and limitations for each stub.
 ### Changed
 - `tests/test_module_registry.py` now asserts the Phase 2 metadata entries and provides a lightweight Streamlit stub so registry tests run without UI dependencies.
+
+## [0.2.1] - 2025-11-22
+### Added
+- Reworked `CITATIONS.md` with explicit placeholder sections for EI-MS, P-Chem/calorimetry, and data import handling.
+- Added `docs/METHOD_AND_DATA.md` describing ModuleRegistry provenance expectations and required metadata fields.
+### Changed
+- Updated module metadata defaults to reference `CITATIONS.md` and standardized limitations to the educational-only disclaimer.
