@@ -44,3 +44,11 @@ AuditEvent payloads (actor, action, timestamp, checksum pointer) directly reinfo
 The ModuleRegistry catalogs source/version metadata for each method and feeds the Method & Data footer so rendered outputs carry module keys, names, citations, and stated limitations. This pairing of registry provenance and on-screen footers strengthens end-to-end traceability for method selection and downstream dataset/job creation.
 
 Limitations: LabOS is currently a development/educational scaffold and has not been validated for clinical decision support. Controls such as user authentication, environment hardening, and formal verification remain future-phase tasks; outputs should not be used to guide patient care.
+
+## 2025-11-22T15:00:00Z — Phase 2 Wave 2 provenance previews
+- **Participants:** Compliance & Legal Bot (Phase 2), UI/Import/Test bots (asynchronous handoff)
+- **Topic:** Wave-2 upgrades expose dataset/job/audit previews in the Control Panel and tighten workspace hooks to tag research artifacts while wiring import provenance into lineage helpers.
+- **Actions:**
+        - Note partial ALCOA+ improvement: users can inspect provenance before promoting data, but signatures/identity controls are still pending.
+        - Flag manual UI verification for provenance previews and workspace tags until automated harnesses ship.
+        - Restate boundary: no PHI/PII, no clinical decision support; research/education only despite improved traceability.
