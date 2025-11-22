@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Any, Mapping
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
@@ -11,7 +11,7 @@ MODULE_VERSION = "0.2.0"
 DESCRIPTION = "ChemLearn EI-MS fragmentation stub that emits dataset/audit placeholders only."
 
 
-def run_eims_stub(params: Mapping[str, object] | None = None) -> dict[str, object]:
+def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
     """Return deterministic EI-MS metadata for educational demos (no real spectra)."""
 
     payload = dict(params or {})
@@ -29,6 +29,7 @@ def run_eims_stub(params: Mapping[str, object] | None = None) -> dict[str, objec
             "module_key": MODULE_KEY,
             "precursor_mz": precursor_mz,
             "collision_energy": collision_energy,
+            "stub": True,
         },
     }
 
@@ -41,6 +42,7 @@ def run_eims_stub(params: Mapping[str, object] | None = None) -> dict[str, objec
             "phase": "educational-stub",
             "notes": "No real EI-MS physics; deterministic metadata only.",
             "inputs": payload,
+            "limitations": "Educational and development only. Not validated for clinical use.",
         },
     }
 

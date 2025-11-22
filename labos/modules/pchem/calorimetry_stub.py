@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Any, Mapping
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
@@ -11,7 +11,7 @@ MODULE_VERSION = "0.2.0"
 DESCRIPTION = "P-Chem calorimetry stub producing dataset/audit placeholders (no thermodynamics)."
 
 
-def run_calorimetry_stub(params: Mapping[str, object] | None = None) -> dict[str, object]:
+def run_calorimetry_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
     """Return deterministic calorimetry metadata for educational walkthroughs."""
 
     payload = dict(params or {})
@@ -29,6 +29,7 @@ def run_calorimetry_stub(params: Mapping[str, object] | None = None) -> dict[str
             "module_key": MODULE_KEY,
             "delta_t_c": delta_t,
             "heat_capacity": heat_capacity,
+            "stub": True,
         },
     }
 
@@ -41,6 +42,7 @@ def run_calorimetry_stub(params: Mapping[str, object] | None = None) -> dict[str
             "phase": "educational-stub",
             "notes": "No thermodynamics performed; metadata only.",
             "inputs": payload,
+            "limitations": "Educational and development only. Not validated for clinical use.",
         },
     }
 
