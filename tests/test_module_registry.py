@@ -56,6 +56,18 @@ class ModuleMetadataTests(unittest.TestCase):
             self.assertTrue(meta.method_name)
             self.assertTrue(meta.limitations)
 
+    def test_phase2_metadata_fields_are_populated(self) -> None:
+        registry = MetadataRegistry.with_phase0_defaults()
+        for key in ("eims.fragmentation", "pchem.calorimetry", "import.wizard"):
+            meta = registry.get(key)
+            self.assertIsNotNone(meta)
+            assert meta is not None
+            self.assertTrue(meta.display_name.strip())
+            self.assertTrue(meta.method_name.strip())
+            self.assertTrue(meta.primary_citation.strip())
+            self.assertTrue(meta.limitations.strip())
+            self.assertTrue(meta.version)
+
 
 class ControlPanelSmokeTest(unittest.TestCase):
     def test_render_control_panel_smoke(self) -> None:
