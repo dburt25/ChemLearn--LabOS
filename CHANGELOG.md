@@ -41,4 +41,4 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 
 ## [0.2.1] - 2025-11-22
 ### Added
-- Refreshed the Workspace / Sketchpad panel with mode-aware guidance and note/image inputs to stage future canvas upgrades.
+- Workflow helpers for pairing experiments, jobs, datasets, and audit events via `labos/core/workflows.py`.

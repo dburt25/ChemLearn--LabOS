@@ -52,6 +52,8 @@ class Job:
     def __post_init__(self) -> None:
         self.id = _validate_id(self.id, "JOB-")
         self.experiment_id = _validate_id(self.experiment_id, "EXP-")
+        if isinstance(self.status, str):
+            self.status = JobStatus(self.status)
 
     def start(self) -> None:
         self.status = JobStatus.RUNNING
@@ -63,6 +65,16 @@ class Job:
         if outputs:
             self.datasets_out = list(dict.fromkeys(outputs))
         self.error_message = error
+
+    def mark_started(self) -> None:
+        """Alias for `start` to align with lifecycle language."""
+
+        self.start()
+
+    def mark_finished(self, *, success: bool, outputs: Optional[List[str]] = None, error: str | None = None) -> None:
+        """Alias for `finish` with clearer naming."""
+
+        self.finish(success=success, outputs=outputs, error=error)
 
     def attach_inputs(self, dataset_ids: List[str]) -> None:
         for ds in dataset_ids:
