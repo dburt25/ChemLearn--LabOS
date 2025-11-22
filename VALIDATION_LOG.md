@@ -11,5 +11,6 @@ Document scientific validation activities once numerical or analytical logic shi
 | 2025-11-22T12:32:00Z | Control Panel UI | Phase 1 – Control Panel renders without error. | `python -m unittest tests.test_module_registry.ControlPanelSmokeTest` |
 | 2025-11-22T13:00:00Z | Module Registry | Phase 2 – Wave 1 stubs registered (EI-MS, P-Chem, Import Wizard) and metadata tests pass. | `python -m unittest tests.test_module_registry` |
 | 2025-11-22T12:40:00Z | Control Panel Workspace | Verified the new Workspace / Drawing Tool section renders in Learner/Lab/Builder modes via `streamlit run app.py` smoke test. | Manual Streamlit run |
+| 2025-11-22T14:30:00Z | Module metadata | Desk review: standardized placeholder citations/limitations and documented provenance expectations. | Documentation review (no automated tests) |
 | 2025-11-22T08:11:34Z | Testing Suite | Phase 2 – Added core object invariants, module stub smoke tests, and registry metadata coverage. | `python -m pytest tests` (stub outputs only; no real physics/ingestion performed) |
 | 2025-11-22T14:00:00Z | Workflow helpers | Desk check: instantiated `create_experiment_with_job`, attached datasets, and emitted audit events for manual inspection. | Manual interactive session |

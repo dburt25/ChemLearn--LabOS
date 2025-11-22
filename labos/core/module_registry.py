@@ -24,6 +24,7 @@ class ModuleMetadata:
     method_name: str  # e.g. "Constant-pressure calorimetry"
     primary_citation: str  # free-form for now
     dataset_citations: List[str] = field(default_factory=list)
+    limitations: str = "Method stub. Educational use only. Not validated for clinical decisions."
     limitations: str = "Educational and development only. Not validated for clinical use."
     reference_url: str = ""
     version: str = "0.1.0"
@@ -70,8 +71,9 @@ class ModuleRegistry:
                 key="pchem.calorimetry",
                 display_name="P-Chem Calorimetry",
                 method_name="Constant-pressure heat capacity estimation",
-                primary_citation="Placeholder – replace with peer-reviewed thermodynamics reference.",
+                primary_citation="See CITATIONS.md (P-Chem / Calorimetry / Thermodynamics placeholder).",
                 dataset_citations=["Phase 0 example dataset only."],
+                limitations="Method stub. Educational use only. Not validated for clinical decisions.",
                 limitations="Educational and development only. Not validated for clinical use.",
                 reference_url="https://doi.org/10.0000/placeholder-pchem",
                 version="0.1.0",
@@ -82,8 +84,9 @@ class ModuleRegistry:
                 key="eims.fragmentation",
                 display_name="EI-MS Fragmentation Engine",
                 method_name="Rule-based + ML-augmented EI fragmentation",
-                primary_citation="Placeholder – insert ACS-style EI-MS reference.",
+                primary_citation="See CITATIONS.md (EI-MS / Mass Spectrometry placeholder).",
                 dataset_citations=["NIST-like spectral libraries (to be wired later)."],
+                limitations="Method stub. Educational use only. Not validated for clinical decisions.",
                 limitations="Educational and development only. Not validated for clinical use.",
                 reference_url="https://doi.org/10.0000/placeholder-eims",
                 version="0.1.0",
@@ -94,8 +97,9 @@ class ModuleRegistry:
                 key="import.wizard",
                 display_name="Import Wizard",
                 method_name="Schema-guided dataset onboarding",
-                primary_citation="Placeholder – cite the data ingestion methodology reference.",
+                primary_citation="See CITATIONS.md (Data Import / General Data Handling placeholder).",
                 dataset_citations=["Internal onboarding datasets (Phase 2 placeholders)."],
+                limitations="Method stub. Educational use only. Not validated for clinical decisions.",
                 limitations="Educational and development only. Not validated for clinical use.",
                 reference_url="https://doi.org/10.0000/placeholder-import",
                 version="0.1.0",
