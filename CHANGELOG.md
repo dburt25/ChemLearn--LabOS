@@ -48,3 +48,9 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Data Import Wizard helpers that infer schemas for in-memory tables, emit DatasetRef metadata, and generate audit events for imports.
 - Provenance utilities to link imported datasets to experiments and trace lineage in-memory.
 - Workflow helpers for pairing experiments, jobs, datasets, and audit events via `labos/core/workflows.py`.
+
+## [0.2.2] - 2025-11-22
+### Added
+- Phase 2 – Wave 2 UI updates: Jobs table shows linked dataset previews and audit context, and Datasets table surfaces schema/module hints with mode-aware explanations.
+- Method & Data footer now renders ModuleMetadata alongside recent audits with learner/lab/builder-specific messaging.
+- Disabled Run buttons and TODO hooks placed near module and job controls in preparation for execution wiring.
