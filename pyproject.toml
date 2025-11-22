@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chemlearn-labos"
+version = "0.1.0"
+description = "ChemLearn LabOS core scaffolding"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "ChemLearn Swarm", email = "labs@chemlearn.example"}
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+]
+dependencies = []
+
+[project.scripts]
+labos = "labos.cli:main"
+
+[tool.setuptools]
+packages = ["labos", "labos.core", "labos.modules"]

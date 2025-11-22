@@ -1,16 +1,21 @@
-# Audit Log Format (Draft)
+# Audit Log Format
 
-Outlines the structure and expectations for audit logs produced by LabOS actions.
+Defines the append-only record layout for every LabOS event.
 
 ## Entry Structure
-- Event ID and timestamp
-- Actor (human or bot) and role
-- Action type and scope
-- References to experiments, jobs, and datasets
+- `event_id` (UUID)
+- `timestamp` (ISO 8601, timezone-aware)
+- `actor_id` and `actor_role`
+- `action_type` and `action_scope`
+- `references` (experiment/job/dataset IDs)
+- `payload_hash` (optional integrity check)
 
 ## Constraints
-- Entries must be append-only.
-- Timestamps use a consistent, timezone-aware format.
+- Logs are append-only and cryptographically verifiable when possible.
+- All timestamps captured in UTC with offset preserved.
+- References must point to existing registry entries; otherwise log entry is rejected.
 
-## Retention
-Retention periods and rotation policies will be defined in later phases.
+## Retention & Rotation
+- Minimum retention: 10 years or per regulatory mandate.
+- Rotation policies documented in `DATA_ARCHITECTURE.md` once storage layers finalize.
+- Archived logs remain searchable with audit trail of transfers.
