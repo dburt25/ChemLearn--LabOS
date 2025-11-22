@@ -1,58 +1,87 @@
-# labos/core/jobs.py
+"""Job model with dataset lineage hooks and lifecycle helpers."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, Literal
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator  # type: ignore
 
 
-JobStatus = Literal["queued", "running", "completed", "failed"]
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
-@dataclass
-class Job:
-    """
-    Minimal job record.
+def _validate_id(value: str, prefix: str) -> str:
+    if not value or not value.startswith(prefix):
+        raise ValueError(f"Job IDs must start with `{prefix}`; received {value!r}")
+    if any(ch.isspace() for ch in value):
+        raise ValueError("Job IDs cannot contain whitespace")
+    return value
 
-    Each serious LabOS computation will later be represented as a Job
-    with:
-    - an ID
-    - parameters
-    - timestamps
-    - status
-    - links to input/output datasets
 
-    Phase 0: just enough structure to display in the UI and evolve later.
-    """
+class JobStatus(str, Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class Job(BaseModel):
+    """Phase 0 job record with start/finish helpers."""
+
+    model_config = ConfigDict(validate_assignment=True)
 
     id: str
     experiment_id: str
     kind: str
-    status: JobStatus = "queued"
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    params: Dict[str, Any] = field(default_factory=dict)
+    status: JobStatus = JobStatus.QUEUED
+    params: Dict[str, Any] = Field(default_factory=dict)
+    datasets_in: List[str] = Field(default_factory=list)
+    datasets_out: List[str] = Field(default_factory=list)
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=_utc_now)
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _job_id_validator(cls, value: str) -> str:
+        return _validate_id(value, "JOB-")
+
+    @field_validator("experiment_id", mode="before")
+    @classmethod
+    def _exp_id_validator(cls, value: str) -> str:
+        return _validate_id(value, "EXP-")
+
+    def start(self) -> None:
+        self.status = JobStatus.RUNNING
+        self.started_at = _utc_now()
+
+    def finish(self, *, success: bool, outputs: Optional[List[str]] = None, error: str | None = None) -> None:
+        self.finished_at = _utc_now()
+        self.status = JobStatus.COMPLETED if success else JobStatus.FAILED
+        if outputs:
+            self.datasets_out = list(dict.fromkeys(outputs))
+        self.error_message = error
+
+    def attach_inputs(self, dataset_ids: List[str]) -> None:
+        for ds in dataset_ids:
+            if ds not in self.datasets_in:
+                self.datasets_in.append(ds)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "experiment_id": self.experiment_id,
-            "kind": self.kind,
-            "status": self.status,
-            "created_at": self.created_at.isoformat(),
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
-            "params": self.params,
-        }
+        return self.model_dump(mode="python")
 
     @classmethod
     def example(cls, idx: int = 1, experiment_id: str = "EXP-001") -> "Job":
+        status = JobStatus.COMPLETED if idx == 1 else JobStatus.QUEUED
         return cls(
             id=f"JOB-{idx:03d}",
             experiment_id=experiment_id,
             kind="pchem:calorimetry",
-            status="completed" if idx == 1 else "queued",
+            status=status,
             params={"phase": "Phase 0 skeleton"},
+            datasets_in=["DS-001"],
         )

@@ -10,3 +10,8 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Minimal CLI commands: `labos init`, `labos new-experiment`, `labos register-dataset`, and `labos run-module`.
 - Foundational documentation set (Development Vision Guide, Compliance Checklist, universal overview) to satisfy global context requirements.
 - Editable packaging (`pyproject.toml`) and unit tests covering registries and job execution.
+
+## [0.1.1] - 2025-11-22
+### Fixed
+- Ensured `render_control_panel()` executes when `streamlit run app.py` is invoked so the Control Panel always renders.
+- Added a placeholder core smoke test that instantiates the exported Phase 0 dataclasses to guard against regressions.
