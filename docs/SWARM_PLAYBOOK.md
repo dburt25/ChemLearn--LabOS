@@ -42,6 +42,17 @@ Operating procedures for coordinating multiple ChemLearn LabOS bots.
 | Data & Storage Bot | Manage dataset folders, storage tier docs, and provenance artifacts. | data architecture | `DATA_ARCHITECTURE.md`, `FUTURE_DISCOVERIES_PIPELINE.md` | `data/*`, `docs/DATA_ARCHITECTURE.md`, storage configs |
 | Swarm Orchestrator Bot | Coordinates scheduling, permissions, and wave planning. | swarm.orchestration | `SWARM_GOVERNANCE.md`, `SWARM_PERMISSIONS_MATRIX.md`, `SWARM_STATUS.md` | `docs/` swarm files only |
 
+## Module Bot Waves
+
+| Module Bot | When to Run (Phase/Wave) | Safe Parallel Partners | Dependencies |
+| --- | --- | --- | --- |
+| EI-MS Module Bot | Phase 3 Wave A (Go Live) | PChem Module Bot, Import & Provenance Bot, Testing & Validation Bot | Phase 2 provenance helpers stable; module folders `labos/modules/eims`, `chemlearn_modules/eims` not touched by others in same wave. |
+| PChem Module Bot | Phase 3 Wave A (Go Live) | EI-MS Module Bot, Import & Provenance Bot, Testing & Validation Bot | Shared CLI hooks available; coordinate on `labos/core/workflows.py` if invoked. |
+| Proteomics Module Bot | Phase 3 Wave B (stub execution + schemas) | OrgChem Module Bot, Simulation Engine Bot (docs-only) | Wait for Phase 3 Wave A validation; requires storage/provenance patterns from Phase 2/3. |
+| OrgChem Module Bot | Phase 3 Wave B (curriculum/stub wiring) | Proteomics Module Bot, Simulation Engine Bot (docs-only) | Depends on Control Panel hooks from Phase 2 UI work; avoid overlapping with PChem/EI-MS code paths. |
+| Simulation Engine Bot | Phase 4 Wave (simulation/3D alignment) | ML Upgrade Bot (docs/tests), Workspace & Visualization Bot | Needs Phase 3 module outputs and storage clarity; do not race with UI Integration Bot on same files. |
+| ML Upgrade Bot | Phase 4 Wave (explainability/guardrails) | Simulation Engine Bot (docs/tests), UI Integration Bot if working in separate components | Depends on module outputs and provenance surfaces; wait for Phase 3 validation to complete. |
+
 ### Wave 2 Assignments
 
 | Bot | Wave 2 Focus | Directory Scope |
