@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Any, Mapping
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
@@ -11,7 +11,7 @@ MODULE_VERSION = "0.2.0"
 DESCRIPTION = "Data import wizard stub emitting dataset/audit placeholders (no ingestion)."
 
 
-def run_import_stub(data_or_path: str | Mapping[str, object] | None = None) -> dict[str, object]:
+def run_import_stub(data_or_path: str | dict[str, Any] | None = None) -> dict[str, object]:
     """Return deterministic import metadata for educational demos only."""
 
     if isinstance(data_or_path, str):
@@ -31,6 +31,7 @@ def run_import_stub(data_or_path: str | Mapping[str, object] | None = None) -> d
             "module_key": MODULE_KEY,
             "source": source,
             "source_type": source_type,
+            "stub": True,
         },
     }
 
@@ -43,6 +44,7 @@ def run_import_stub(data_or_path: str | Mapping[str, object] | None = None) -> d
             "phase": "educational-stub",
             "notes": "No real ingestion performed; metadata only.",
             "inputs": payload,
+            "limitations": "Educational and development only. Not validated for clinical use.",
         },
     }
 
