@@ -16,6 +16,7 @@ from labos.core.experiments import Experiment
 from labos.core.jobs import Job, JobStatus
 from labos.core.module_registry import ModuleRegistry
 from labos.core.signature import Signature
+from labos.core.workflows import WorkflowResult, create_experiment, run_module_job
 
 
 class CoreObjectInstantiationTests(unittest.TestCase):
@@ -64,6 +65,24 @@ class CoreObjectInstantiationTests(unittest.TestCase):
             self.assertTrue(meta.method_name)
             self.assertTrue(meta.primary_citation)
             self.assertTrue(meta.limitations)
+
+    def test_run_module_job_creates_dataset_and_audit(self) -> None:
+        experiment = create_experiment(name="Calorimetry Demo")
+        result = run_module_job(
+            module_key="pchem.calorimetry",
+            params={"sample_id": "UNIT-01", "delta_t": 5.0},
+            actor="unit-test",
+            experiment=experiment,
+        )
+        self.assertIsInstance(result, WorkflowResult)
+        self.assertTrue(result.succeeded())
+        self.assertEqual(result.job.experiment_id, experiment.id)
+        self.assertTrue(result.job.datasets_out)
+        self.assertIsNotNone(result.dataset)
+        assert result.dataset is not None
+        self.assertIn(result.dataset.id, result.job.datasets_out)
+        payload = result.to_dict()
+        self.assertEqual(payload["experiment"]["id"], experiment.id)
 
 
 if __name__ == "__main__":

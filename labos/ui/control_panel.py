@@ -27,6 +27,7 @@ st: Any = cast(Any, _streamlit)
 from labos.config import LabOSConfig
 from labos.core.errors import NotFoundError
 from labos.core.module_registry import ModuleRegistry as MetadataRegistry
+from labos.core.workflows import run_module_job
 from labos.datasets import Dataset
 from labos.experiments import Experiment
 from labos.jobs import Job
@@ -684,6 +685,50 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
                     st.json(ds_obj.to_dict())
 
 
+def _render_pchem_calorimetry_runner() -> None:
+    st.markdown("#### Run Calorimetry Workflow (beta)")
+    st.caption("Creates an experiment + job, calls the PChem calorimetry stub, and emits dataset/audit metadata.")
+
+    default_name = st.session_state.get("pchem_default_experiment")
+    if not default_name:
+        default_name = f"Calorimetry Demo {datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+
+    with st.form("pchem_calorimetry_form", clear_on_submit=False):
+        experiment_name = st.text_input("Experiment Name", value=default_name)
+        sample_id = st.text_input("Sample ID", value="SAMPLE-STUB")
+        delta_t = st.number_input("Delta T (C)", value=3.5, step=0.1)
+        heat_capacity = st.number_input("Heat Capacity (J/g*C)", value=4.18, step=0.01)
+        actor = st.text_input("Actor", value="lab-operator")
+        submitted = st.form_submit_button("Run calorimetry workflow", use_container_width=True)
+
+    if submitted:
+        st.session_state.pchem_default_experiment = experiment_name
+        with st.spinner("Executing calorimetry stub..."):
+            try:
+                result = run_module_job(
+                    module_key="pchem.calorimetry",
+                    params={
+                        "sample_id": sample_id,
+                        "delta_t": float(delta_t),
+                        "heat_capacity": float(heat_capacity),
+                        "actor": actor,
+                    },
+                    actor=actor,
+                    experiment_name=experiment_name,
+                )
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                st.error(f"Calorimetry workflow failed: {exc}")
+            else:
+                dataset_label = result.dataset.id if result.dataset else "dataset-pending"
+                st.success(f"Job {result.job.id} completed; produced {dataset_label}.")
+                st.session_state.pchem_last_workflow = result.to_dict()
+
+    last_payload = st.session_state.get("pchem_last_workflow")
+    if last_payload:
+        with st.expander("Latest calorimetry workflow payload", expanded=False):
+            st.json(last_payload)
+
+
 def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
     st.subheader("Modules & Operations")
     _render_section_explainer("Modules", mode)
@@ -748,6 +793,9 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         )
     else:
         st.write("_No operations registered._")
+
+    if descriptor.module_id == "pchem.calorimetry":
+        _render_pchem_calorimetry_runner()
 
     if _is_builder(mode):
         st.markdown("#### Debug payloads")
