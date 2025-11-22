@@ -103,6 +103,18 @@ def _mode_tip(section: str) -> str:
     return fallback_tips.get(section, "")
 
 
+def _is_learner(mode: str) -> bool:
+    return mode == "Learner"
+
+
+def _is_lab(mode: str) -> bool:
+    return mode == "Lab"
+
+
+def _is_builder(mode: str) -> bool:
+    return mode == "Builder"
+
+
 def _render_mode_banner(
     experiments: Sequence[Experiment],
     datasets: Sequence[Dataset],
@@ -124,9 +136,38 @@ def _render_mode_banner(
     callout(message)
     what_is_this = profile.get("what_is_this")
     if what_is_this:
-        expanded = st.session_state.mode == "Learner"
+        expanded = _is_learner(st.session_state.mode)
         with st.expander("What is this mode?", expanded=expanded):
             st.markdown(str(what_is_this))
+
+
+def _render_section_explainer(section: str, mode: str) -> None:
+    """Provide mode-aware onboarding for specific sections."""
+
+    learner_notes: dict[str, str] = {
+        "Experiments": (
+            "Experiments capture the intent of a study, including title, owner, tags, "
+            "and timestamps. Use them to group jobs and datasets under a single story."
+        ),
+        "Jobs": (
+            "Jobs are single execution attempts of a module/operation with parameters. "
+            "Statuses tell the story of what ran and what failed."
+        ),
+        "Modules": (
+            "Modules wrap scientific methods. Their descriptors advertise operations while "
+            "Method metadata links to citations and limitations."
+        ),
+    }
+
+    if _is_learner(mode) and section in learner_notes:
+        with st.expander("What is this?", expanded=True):
+            st.info(learner_notes[section])
+
+
+def _truncate(text: str, length: int = 140) -> str:
+    if len(text) <= length:
+        return text
+    return text[: length - 1].rstrip() + "…"
 
 
 def _render_create_experiment_form() -> None:
@@ -282,7 +323,7 @@ def _render_sidebar() -> None:
             "Datasets",
             "Modules",
             "Audit Log",
-            "Workspace",
+            "Workspace / Drawing",
         ],
         help="Choose which resource set to inspect. Mode-aware tips adjust automatically.",
     )
@@ -299,6 +340,7 @@ def _render_overview(
     datasets: Sequence[Dataset],
     jobs: Sequence[Job],
     registry: ModuleRegistry,
+    mode: str,
 ) -> None:
     st.subheader("Overview")
     tip = _mode_tip("overview")
@@ -325,7 +367,12 @@ def _render_overview(
                 for exp in experiments[:5]
             ]
             st.dataframe(exp_rows, use_container_width=True)
-            st.caption("Showing the five most recent experiments.")
+            if _is_lab(mode):
+                st.caption("Lab view keeps the latest five experiments within reach.")
+            elif _is_learner(mode):
+                st.caption("Showing the five most recent experiments so you can orient to current work.")
+            else:
+                st.caption("Builder view trims the sample but exposes full details below.")
         else:
             st.info("No experiments registered yet. Use the sidebar flow or CLI to add one.")
     with module_col:
@@ -342,7 +389,12 @@ def _render_overview(
                     }
                 )
             st.dataframe(module_rows, use_container_width=True)
-            st.caption("Need more detail? Open the Module Inspector page.")
+            if _is_learner(mode):
+                st.caption("Module Registry previews which scientific tools are wired. Use Modules page for guidance.")
+            elif _is_lab(mode):
+                st.caption("Quick check: confirm the operation count before launching jobs.")
+            else:
+                st.caption("Builder tip: use the Modules section to compare descriptors vs. metadata registry.")
         else:
             st.warning("No modules registered. Set LABOS_MODULES to auto-discover packs.")
 
@@ -377,13 +429,19 @@ def _render_overview(
         else:
             st.info("No datasets registered yet.")
 
-    st.success(
-        "Everything you see here is designed to be extended by bots later without breaking compliance or architecture."
-    )
+    if _is_builder(mode):
+        st.info(
+            "Builder mode exposes quick registry stats for debugging. IDs and raw dictionaries appear in each section."
+        )
+    elif _is_learner(mode):
+        st.success(
+            "Everything you see here is intentionally read-friendly. Switch sections to learn how LabOS tracks science."
+        )
 
 
-def _render_experiments(experiments: Sequence[Experiment]) -> None:
+def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
     st.subheader("Experiments")
+    _render_section_explainer("Experiments", mode)
     if not experiments:
         st.info("No experiments registered yet.")
         return
@@ -402,7 +460,7 @@ def _render_experiments(experiments: Sequence[Experiment]) -> None:
         }
         for exp in experiments
     ]
-    st.dataframe(summary, use_container_width=True)
+    st.dataframe(summary, use_container_width=True, hide_index=True)
 
     record_ids = [exp.record_id for exp in experiments]
     selected_id = st.selectbox(
@@ -413,12 +471,18 @@ def _render_experiments(experiments: Sequence[Experiment]) -> None:
     if selected_id:
         selected_exp = next((exp for exp in experiments if exp.record_id == selected_id), None)
         if selected_exp:
-            with st.expander(f"Details — {selected_exp.title}", expanded=False):
+            expanded = _is_builder(mode)
+            with st.expander(f"Details — {selected_exp.title}", expanded=expanded):
+                if _is_learner(mode):
+                    st.caption(
+                        "Experiments are JSON documents. Builder mode shows the raw structure; here is the sanitized view."
+                    )
                 st.json(selected_exp.to_dict())
 
 
-def _render_jobs(jobs: Sequence[Job]) -> None:
+def _render_jobs(jobs: Sequence[Job], mode: str) -> None:
     st.subheader("Jobs")
+    _render_section_explainer("Jobs", mode)
     if not jobs:
         st.info("No jobs have run yet.")
         return
@@ -438,7 +502,7 @@ def _render_jobs(jobs: Sequence[Job]) -> None:
         }
         for job in jobs
     ]
-    st.dataframe(job_rows, use_container_width=True)
+    st.dataframe(job_rows, use_container_width=True, hide_index=True)
 
     selected_job = st.selectbox(
         "Inspect job",
@@ -449,11 +513,14 @@ def _render_jobs(jobs: Sequence[Job]) -> None:
         job_map = {job.record_id: job for job in jobs}
         job_obj = job_map.get(selected_job)
         if job_obj:
-            with st.expander(f"Details — {selected_job}", expanded=False):
+            expanded = _is_builder(mode)
+            with st.expander(f"Details — {selected_job}", expanded=expanded):
+                if _is_builder(mode):
+                    st.caption("Raw job manifest for debugging module contracts and parameters.")
                 st.json(job_obj.to_dict())
 
 
-def _render_datasets(datasets: Sequence[Dataset]) -> None:
+def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
     st.subheader("Datasets")
     if not datasets:
         st.info("No datasets registered yet.")
@@ -473,7 +540,7 @@ def _render_datasets(datasets: Sequence[Dataset]) -> None:
         }
         for ds in datasets
     ]
-    st.dataframe(dataset_rows, use_container_width=True)
+    st.dataframe(dataset_rows, use_container_width=True, hide_index=True)
 
     selected_dataset = st.selectbox(
         "Inspect dataset",
@@ -484,49 +551,49 @@ def _render_datasets(datasets: Sequence[Dataset]) -> None:
         dataset_map = {ds.record_id: ds for ds in datasets}
         ds_obj = dataset_map.get(selected_dataset)
         if ds_obj:
-            with st.expander(f"Details — {selected_dataset}", expanded=False):
+            with st.expander(f"Details — {selected_dataset}", expanded=_is_builder(mode)):
+                if _is_builder(mode):
+                    st.caption("Full dataset record with IDs and typed fields exposed for ingestion debugging.")
                 st.json(ds_obj.to_dict())
 
 
-def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry) -> None:
+def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
     st.subheader("Modules & Operations")
+    _render_section_explainer("Modules", mode)
     tip = _mode_tip("modules")
     if tip:
         st.caption(tip)
 
     modules = cast(dict[str, ModuleDescriptor], getattr(registry, "_modules", {}))
-    metadata = {meta.key: meta for meta in metadata_registry.all()}
+    metadata_map = {meta.key: meta for meta in metadata_registry.all()}
 
-    if metadata:
-        meta_rows: list[dict[str, object]] = []
-        for meta in sorted(metadata.values(), key=lambda m: m.display_name.lower()):
-            meta_rows.append(
+    if modules:
+        summary_rows: list[dict[str, object]] = []
+        for module_id, descriptor in sorted(modules.items()):
+            meta = metadata_map.get(module_id)
+            summary_rows.append(
                 {
-                    "Module": meta.display_name,
-                    "Method": meta.method_name,
-                    "Citation": meta.primary_citation,
-                    "Limitations": meta.limitations,
+                    "Module": meta.display_name if meta else module_id,
+                    "Key": module_id,
+                    "Method": meta.method_name if meta else "Pending metadata",
+                    "Ops": len(descriptor.operations),
+                    "Citation": _truncate(meta.primary_citation if meta else "Awaiting citation"),
+                    "Limitations": _truncate(meta.limitations if meta else "Add limitations"),
                 }
             )
-        st.dataframe(meta_rows, use_container_width=True)
-        st.caption("Phase 2 educational stubs — replace citations/limitations with validated data later.")
+        st.dataframe(summary_rows, use_container_width=True, hide_index=True)
+        if _is_lab(mode):
+            st.caption("Compact registry view for quick verification before launching jobs.")
+        elif _is_learner(mode):
+            st.caption("Each row pairs a module key with its method name and citation so you can trace provenance.")
+        else:
+            st.caption("Builder mode keeps keys visible to match code, jobs, and metadata entries.")
     else:
-        st.info("No module metadata registered yet. Extend labos.core.module_registry to populate this table.")
+        st.info("No modules registered. Set LABOS_MODULES or call register_descriptor() from your plugin.")
+        return
 
     st.markdown("### Module Inspector")
-    st.caption("TODO: Future waves will add Run buttons that execute these modules and materialize Jobs/Datasets.")
-
-    if not modules:
-        st.info(
-            "No modules registered. Set LABOS_MODULES or call register_descriptor() from your plugin."
-        )
-        return
-
-    if not modules:
-        st.info(
-            "No modules registered. Set LABOS_MODULES or call register_descriptor() from your plugin."
-        )
-        return
+    st.caption("Future waves will add Run buttons that execute operations into Jobs/Datasets.")
 
     module_ids = sorted(modules.keys())
     selected_module = st.selectbox(
@@ -535,13 +602,14 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         help="Review descriptor details before wiring jobs or experiments to it.",
     )
     descriptor = modules[selected_module]
+    meta = metadata_map.get(descriptor.module_id)
+
     st.markdown(f"**{descriptor.module_id}** — v{descriptor.version}")
     st.write(descriptor.description or "No description provided.")
-    meta = metadata.get(descriptor.module_id)
     if meta:
         st.markdown(f"_Method:_ {meta.method_name}")
-        st.markdown(f"_Citation:_ {meta.primary_citation}")
-        st.markdown(f"_Limitations:_ {meta.limitations}")
+        st.markdown(f"_Citation:_ {_truncate(meta.primary_citation)}")
+        st.markdown(f"_Limitations:_ {_truncate(meta.limitations)}")
     if descriptor.operations:
         st.markdown("Operations")
         for op in descriptor.operations.values():
@@ -549,9 +617,19 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
     else:
         st.write("_No operations registered._")
 
+    if _is_builder(mode):
+        st.markdown("#### Debug payloads")
+        st.caption("Raw registry entries help bots and developers validate wiring.")
+        st.json({"module_id": descriptor.module_id, "version": descriptor.version})
+        st.json({"operations": {op.name: op.description for op in descriptor.operations.values()}})
+        if meta:
+            st.json({"metadata_key": meta.key, "metadata": meta.__dict__})
 
-def _render_audit_log(events: Sequence[dict[str, object]]) -> None:
+
+def _render_audit_log(events: Sequence[dict[str, object]], mode: str) -> None:
     st.subheader("Audit Log")
+    if _is_learner(mode):
+        st.info("Audit entries show who did what, when, and why. These logs anchor ALCOA+ compliance.")
     if not events:
         st.info("No audit events recorded yet.")
         return
@@ -560,6 +638,8 @@ def _render_audit_log(events: Sequence[dict[str, object]]) -> None:
         header = f"{event.get('event_id', 'unknown')} — {event.get('event_type', 'event')}"
         with st.expander(header, expanded=False):
             st.json(event)
+    if _is_builder(mode):
+        st.caption("Builder mode exposes raw audit dictionaries to validate logging schemas.")
 
 
 def _render_method_and_data_footer(metadata_registry: MetadataRegistry) -> None:
@@ -568,6 +648,7 @@ def _render_method_and_data_footer(metadata_registry: MetadataRegistry) -> None:
         """
         <div style="font-size: 0.9rem; opacity: 0.9;">
         ⓘ <strong>Method &amp; Data</strong> — snapshot of placeholder provenance details.<br/>
+        This footer will grow to show <em>versioning</em> and <em>validation status</em> for every method and dataset as LabOS matures.<br/>
         Each listed method maps to <code>CITATIONS.md</code>; update that file and this registry together when you wire real science.
         </div>
         """,
@@ -582,6 +663,11 @@ def _render_method_and_data_footer(metadata_registry: MetadataRegistry) -> None:
     if not metadata:
         st.info("No method metadata registered yet. Extend labos.core.module_registry to populate this footer.")
         return
+
+    st.markdown("**Preview of module provenance**")
+    st.caption("Keys and method names give a hint of upcoming versioned, validated records.")
+    for meta in metadata:
+        st.markdown(f"- `{escape(meta.key)}` → {escape(meta.method_name)}")
 
     for meta in metadata:
         citation_text = escape(meta.primary_citation)
@@ -636,20 +722,21 @@ def render_control_panel() -> None:
     _render_mode_banner(experiments, datasets, jobs, module_registry)
 
     section = st.session_state.get("current_section", "Overview")
+    mode = st.session_state.mode
 
     if section == "Overview":
-        _render_overview(experiments, datasets, jobs, module_registry)
+        _render_overview(experiments, datasets, jobs, module_registry, mode)
     elif section == "Experiments":
-        _render_experiments(experiments)
+        _render_experiments(experiments, mode)
     elif section == "Jobs":
-        _render_jobs(jobs)
+        _render_jobs(jobs, mode)
     elif section == "Datasets":
-        _render_datasets(datasets)
+        _render_datasets(datasets, mode)
     elif section == "Modules":
-        _render_modules(module_registry, method_metadata_registry)
+        _render_modules(module_registry, method_metadata_registry, mode)
     elif section == "Audit Log":
-        _render_audit_log(audit_events)
-    elif section == "Workspace":
-        render_drawing_tool(st.session_state.mode)
+        _render_audit_log(audit_events, mode)
+    elif section == "Workspace / Drawing":
+        render_drawing_tool(mode)
 
     _render_method_and_data_footer(method_metadata_registry)
