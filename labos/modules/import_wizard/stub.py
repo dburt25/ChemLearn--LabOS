@@ -8,7 +8,7 @@ it can be used in educational settings without touching real files.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, Mapping, MutableMapping, Sequence
 
 from labos.core.audit import AuditEvent
@@ -18,6 +18,13 @@ from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 MODULE_KEY = "import.wizard"
 MODULE_VERSION = "0.3.0"
 DESCRIPTION = "Data import wizard utilities for small in-memory tables."
+
+# Deterministic fallback rows so the stub can still emit dataset/audit payloads
+# when tests or examples call it without providing explicit data.
+_DEFAULT_SAMPLE_ROWS: list[dict[str, object]] = [
+    {"sample": "STD-1", "analyte": "Demo reference", "value": 1.23, "units": "a.u."},
+    {"sample": "STD-2", "analyte": "Demo reference", "value": 4.56, "units": "a.u."},
+]
 
 
 def infer_schema(df_or_records: object) -> dict:
@@ -123,6 +130,29 @@ def infer_schema(df_or_records: object) -> dict:
     return {"fields": fields, "row_count": rows}
 
 
+def build_preview(df_or_records: object, max_rows: int = 5) -> dict:
+    """Build a small preview payload for UI consumption."""
+
+    rows: list[Mapping[str, object]] = []
+
+    try:  # optional dependency
+        import pandas as pd  # type: ignore
+    except Exception:  # pragma: no cover - pandas optional
+        pd = None  # type: ignore
+
+    if pd is not None and isinstance(df_or_records, pd.DataFrame):
+        preview_df = df_or_records.head(max_rows)
+        rows = preview_df.to_dict(orient="records")
+    elif isinstance(df_or_records, Mapping):
+        rows = [df_or_records]
+    elif isinstance(df_or_records, Sequence) and not isinstance(
+        df_or_records, (str, bytes, bytearray)
+    ):
+        rows = [r for r in df_or_records if isinstance(r, Mapping)][:max_rows]
+
+    return {"rows": rows, "row_count": len(rows)}
+
+
 def create_dataset_ref_from_import(
     data: object,
     source: str | None = None,
@@ -134,7 +164,8 @@ def create_dataset_ref_from_import(
     """Create a DatasetRef based on imported data and inferred schema."""
 
     schema = infer_schema(data)
-    timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    preview = build_preview(data)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     dataset_id = f"DS-IMPORT-{timestamp}"
     display_label = label or "Imported dataset"
     path_hint = logical_path or f"import/{source_type}/{dataset_id}.json"
@@ -144,6 +175,7 @@ def create_dataset_ref_from_import(
         "source_type": source_type,
         "imported_by": actor or "unknown",
         "schema": schema,
+        "preview": preview,
     }
     return DatasetRef(
         id=dataset_id,
@@ -170,6 +202,7 @@ def build_import_summary(
         source_type=source_type,
     )
     schema = dataset_ref.metadata.get("schema", {})
+    preview = dataset_ref.metadata.get("preview", {})
     audit_event = AuditEvent(
         id=f"AUD-IMPORT-{dataset_ref.id}",
         actor=actor or "unknown",
@@ -181,22 +214,17 @@ def build_import_summary(
             "source_type": source_type,
             "schema": schema,
             "row_count": schema.get("row_count"),
+            "preview": preview,
             "notes": dict(notes or {}),
         },
     )
-    preview_rows = []
-    if isinstance(data, Mapping):
-        preview_rows.append(data)
-    elif isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-        for item in data[:5]:  # type: ignore[index]
-            if isinstance(item, Mapping):
-                preview_rows.append(item)
 
     summary = {
         "module_key": MODULE_KEY,
         "dataset": dataset_ref.to_dict(),
+        "audit": audit_event.to_dict(),
         "audit_events": [audit_event.to_dict()],
-        "preview": preview_rows,
+        "preview": preview,
         "status": "imported",
         "schema": schema,
     }
@@ -209,7 +237,6 @@ def run_import_stub(params: Mapping[str, object] | None = None) -> dict[str, obj
     When called directly (e.g., unit tests) the params argument is optional and
     defaults to an empty mapping.
     """
-
     params = params or {}
     data = params.get("data")
     source = params.get("source") or params.get("path")
@@ -217,9 +244,10 @@ def run_import_stub(params: Mapping[str, object] | None = None) -> dict[str, obj
     source_type = params.get("source_type") or "inline"
     notes_param = params.get("notes")
     notes = notes_param if isinstance(notes_param, Mapping) else {}
+    payload_data = data if data is not None else list(_DEFAULT_SAMPLE_ROWS)
     try:
         summary = build_import_summary(
-            data=data,
+            data=payload_data,
             source=str(source) if source is not None else None,
             actor=str(actor) if actor is not None else None,
             source_type=str(source_type),
@@ -234,6 +262,9 @@ def run_import_stub(params: Mapping[str, object] | None = None) -> dict[str, obj
         }
 
     summary["inputs"] = dict(params)
+    if data is None:
+        summary.setdefault("notes", {})
+        summary["notes"]["default_data"] = "No data provided; used deterministic sample rows."
     return summary
 
 

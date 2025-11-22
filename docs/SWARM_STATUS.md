@@ -39,6 +39,14 @@
 - **Wave B:** Bots — Proteomics Module, OrgChem Module, Simulation Engine. Goal: baseline new domain plans with schemas + validation scaffolds.
 - **Wave C:** Bots — UI Integration, CLI & Interface, Compliance & Legal. Goal: surface new module controls, document governance, update permissions per new domains.
 
+### Phase 3 Wave Plan (parallel-safe sets)
+
+| Wave ID | Bots | Safe Parallel Sets | Depends On |
+| --- | --- | --- | --- |
+| 3A | EI-MS Module Bot, PChem Module Bot, Import & Provenance Bot, Testing & Validation Bot | {EI-MS Module Bot, PChem Module Bot} share no module paths; Import & Provenance Bot can run alongside if avoiding `labos/core/workflows.py` collisions; Testing & Validation Bot runs after module commits. | Phase 2 provenance/UI hardening complete; CLI hooks from Phase 2 Wave 3 available. |
+| 3B | Proteomics Module Bot, OrgChem Module Bot, Simulation Engine Bot (docs/architecture), Testing & Validation Bot | Proteomics + OrgChem can run in parallel while respecting `SWARM_PERMISSIONS_MATRIX` module folders; Simulation Bot limited to docs/architecture to avoid runtime conflicts; Testing Bot executes post-merge. | Wave 3A validation complete; storage/provenance patterns established. |
+| 3C | UI Integration Bot, CLI & Interface Bot, Compliance & Legal Bot, Import & Provenance Bot (if follow-ups) | UI + CLI can proceed in parallel when editing distinct files; Compliance Bot runs serially after code merges; Import & Provenance follow-ups coordinate with UI to avoid overlapping files. | Waves 3A–3B validated; permissions matrix updated. |
+
 Keep this status document synchronized with `MASTER_BLUEPRINT_INDEX.md`, `SWARM_PLAYBOOK.md`, and `SWARM_PERMISSIONS_MATRIX.md` whenever roles or schedules change.
 
 ## Wave 2 Execution Blueprint

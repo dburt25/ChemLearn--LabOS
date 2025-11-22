@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
-from typing import Any, Sequence, cast
+from typing import Any, Mapping, Sequence, cast
 
 try:  # pragma: no cover - imported at module import time only
     import streamlit as _streamlit  # type: ignore
@@ -26,13 +26,14 @@ st: Any = cast(Any, _streamlit)
 
 from labos.config import LabOSConfig
 from labos.core.errors import NotFoundError
-from labos.core.module_registry import ModuleMetadata, ModuleRegistry as MetadataRegistry
+from labos.core.module_registry import ModuleRegistry as MetadataRegistry
 from labos.datasets import Dataset
 from labos.experiments import Experiment
 from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
+from labos.ui.provenance_footer import render_method_and_data_footer
 
 
 MODES = ["Learner", "Lab", "Builder"]
@@ -174,6 +175,46 @@ def _render_section_explainer(section: str, mode: str) -> None:
     if _is_learner(mode) and section in learner_notes:
         with st.expander("What is this?", expanded=True):
             st.info(learner_notes[section])
+
+
+def _dataset_label(dataset: Dataset) -> str:
+    metadata_label = str(dataset.metadata.get("label", "")).strip()
+    return metadata_label or dataset.record_id
+
+
+def _dataset_kind(dataset: Dataset) -> str:
+    return dataset.metadata.get("kind") or dataset.dataset_type.value
+
+
+def _dataset_preview_text(dataset: Dataset) -> str:
+    metadata = dataset.metadata or {}
+    schema_preview = metadata.get("schema") or metadata.get("preview")
+    if schema_preview:
+        return _truncate(json.dumps(schema_preview, default=str), length=160)
+    return "Schema preview pending ingestion."
+
+
+def _job_dataset_ids(job: Job) -> list[str]:
+    ids: list[str] = []
+    parameters: Mapping[str, object] | None = job.parameters if isinstance(job.parameters, Mapping) else None
+    if not parameters:
+        return ids
+    maybe_many = parameters.get("dataset_ids")
+    if isinstance(maybe_many, Sequence) and not isinstance(maybe_many, (str, bytes)):
+        ids.extend([str(item) for item in maybe_many])
+    maybe_one = parameters.get("dataset_id")
+    if maybe_one:
+        ids.append(str(maybe_one))
+    return list(dict.fromkeys(ids))
+
+
+def _find_audit_by_id(events: Sequence[dict[str, object]], event_id: str | None) -> dict[str, object] | None:
+    if not event_id:
+        return None
+    for event in events:
+        if str(event.get("event_id")) == str(event_id):
+            return event
+    return None
 
 
 def _truncate(text: str, length: int = 140) -> str:
@@ -358,6 +399,12 @@ def _render_overview(
     tip = _mode_tip("overview")
     if tip:
         st.caption(tip)
+    if _is_learner(mode):
+        st.info(
+            "Linked dataset previews show which inputs a job expects. Audits summarize the last recorded action."
+        )
+    elif _is_lab(mode):
+        st.caption("Compact view keeps dataset links and audit timestamps within reach.")
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Experiments", len(experiments), help="Count of experiment JSON records on disk.")
@@ -492,7 +539,12 @@ def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
                 st.json(selected_exp.to_dict())
 
 
-def _render_jobs(jobs: Sequence[Job], mode: str) -> None:
+def _render_jobs(
+    jobs: Sequence[Job],
+    datasets: Sequence[Dataset],
+    audit_events: Sequence[dict[str, object]],
+    mode: str,
+) -> None:
     st.subheader("Jobs")
     _render_section_explainer("Jobs", mode)
     if not jobs:
@@ -502,19 +554,45 @@ def _render_jobs(jobs: Sequence[Job], mode: str) -> None:
     tip = _mode_tip("jobs")
     if tip:
         st.caption(tip)
+    if _is_learner(mode):
+        st.info(
+            "Linked dataset previews show which inputs a job expects. Audits summarize the last recorded action."
+        )
+    elif _is_lab(mode):
+        st.caption("Compact view keeps dataset links and audit timestamps within reach.")
 
-    job_rows = [
-        {
-            "Job": job.record_id,
-            "Status": job.status.value,
-            "Module": job.module_id,
-            "Operation": job.operation,
-            "Experiment": job.experiment_id,
-            "Updated": job.updated_at,
-        }
-        for job in jobs
-    ]
+    dataset_map = {ds.record_id: ds for ds in datasets}
+    job_rows = []
+    for job in jobs:
+        linked_ids = _job_dataset_ids(job)
+        linked_preview = (
+            ", ".join(linked_ids)
+            if linked_ids
+            else "No datasets linked"
+        )
+        audit_info = _find_audit_by_id(audit_events, getattr(job, "last_audit_event_id", None))
+        audit_label = "Audit pending"
+        if audit_info:
+            created_at = audit_info.get("created_at", "")
+            audit_label = f"{audit_info.get('event_type', 'event')} @ {created_at}".strip()
+        job_rows.append(
+            {
+                "Job": job.record_id,
+                "Status": job.status.value,
+                "Module": job.module_id,
+                "Operation": job.operation,
+                "Experiment": job.experiment_id,
+                "Datasets": linked_preview,
+                "Audit": audit_label,
+                "Updated": job.updated_at,
+            }
+        )
     st.dataframe(job_rows, use_container_width=True, hide_index=True)
+    st.button(
+        "Run selected job (coming soon)",
+        disabled=True,
+        help="TODO: wire job execution triggers once Run buttons are enabled.",
+    )
 
     selected_job = st.selectbox(
         "Inspect job",
@@ -530,6 +608,28 @@ def _render_jobs(jobs: Sequence[Job], mode: str) -> None:
                 if _is_builder(mode):
                     st.caption("Raw job manifest for debugging module contracts and parameters.")
                 st.json(job_obj.to_dict())
+                st.caption("Linked datasets and latest audit signals help trace provenance from jobs to data.")
+                linked_ids = _job_dataset_ids(job_obj)
+                if linked_ids:
+                    for ds_id in linked_ids:
+                        ds_obj = dataset_map.get(ds_id)
+                        if ds_obj:
+                            st.markdown(
+                                f"- `{ds_id}` — {_dataset_label(ds_obj)} ({_dataset_kind(ds_obj)})"
+                            )
+                            st.caption(_dataset_preview_text(ds_obj))
+                        else:
+                            st.markdown(f"- `{ds_id}` — dataset record not found yet.")
+                else:
+                    st.info("No dataset references attached to this job. Add dataset_ids to parameters when wiring execution.")
+                audit_info = _find_audit_by_id(audit_events, getattr(job_obj, "last_audit_event_id", None))
+                if audit_info:
+                    st.write("Last audit event:", audit_info.get("event_type", "event"))
+                    st.caption(f"Created at: {audit_info.get('created_at', 'unknown')}")
+                else:
+                    st.caption("Audit linkage pending. Future runs will populate this automatically.")
+
+    st.caption("Jobs table now hints at linked datasets and audit records; execution wiring will land in a later wave.")
 
 
 def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
@@ -542,13 +642,18 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
     if tip:
         st.caption(tip)
 
+    if _is_learner(mode):
+        st.info(
+            "This preview shows the imported dataset structure and recent actions so learners can trace provenance before running analyses."
+        )
+
     dataset_rows = [
         {
             "Dataset": ds.record_id,
-            "Owner": ds.owner,
-            "Type": ds.dataset_type.value,
-            "URI": ds.uri,
-            "Updated": ds.updated_at,
+            "Label": _dataset_label(ds),
+            "Kind": _dataset_kind(ds),
+            "Module Key": ds.metadata.get("module_key", "—"),
+            "Schema Preview": _dataset_preview_text(ds),
         }
         for ds in datasets
     ]
@@ -564,9 +669,19 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
         ds_obj = dataset_map.get(selected_dataset)
         if ds_obj:
             with st.expander(f"Details — {selected_dataset}", expanded=_is_builder(mode)):
+                st.markdown(
+                    f"**Label:** {_dataset_label(ds_obj)} | **Kind:** {_dataset_kind(ds_obj)}"
+                )
+                st.caption(
+                    "Module key and schema previews surface what generated this dataset. Future waves will add richer lineage."
+                )
+                st.write("URI:", ds_obj.uri or "No URI recorded")
+                st.write("Owner:", ds_obj.owner)
+                st.write("Schema/preview:")
+                st.code(_dataset_preview_text(ds_obj))
                 if _is_builder(mode):
                     st.caption("Full dataset record with IDs and typed fields exposed for ingestion debugging.")
-                st.json(ds_obj.to_dict())
+                    st.json(ds_obj.to_dict())
 
 
 def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
@@ -626,6 +741,11 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         st.markdown("Operations")
         for op in descriptor.operations.values():
             st.markdown(f"- `{op.name}` — {op.description}")
+        st.button(
+            "Run (coming soon)",
+            disabled=True,
+            help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
+        )
     else:
         st.write("_No operations registered._")
 
@@ -652,62 +772,6 @@ def _render_audit_log(events: Sequence[dict[str, object]], mode: str) -> None:
             st.json(event)
     if _is_builder(mode):
         st.caption("Builder mode exposes raw audit dictionaries to validate logging schemas.")
-
-
-def _render_method_and_data_footer(metadata_registry: MetadataRegistry) -> None:
-    st.markdown("---")
-    st.markdown(
-        """
-        <div style="font-size: 0.9rem; opacity: 0.9;">
-        ⓘ <strong>Method &amp; Data</strong> — snapshot of placeholder provenance details.<br/>
-        This footer will grow to show <em>versioning</em> and <em>validation status</em> for every method and dataset as LabOS matures.<br/>
-        Each listed method maps to <code>CITATIONS.md</code>; update that file and this registry together when you wire real science.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    metadata: list[ModuleMetadata] = sorted(
-        metadata_registry.all(),
-        key=lambda meta: meta.display_name.lower(),
-    )
-
-    if not metadata:
-        st.info("No method metadata registered yet. Extend labos.core.module_registry to populate this footer.")
-        return
-
-    st.markdown("**Preview of module provenance**")
-    st.caption("Keys and method names give a hint of upcoming versioned, validated records.")
-    for meta in metadata:
-        st.markdown(f"- `{escape(meta.key)}` → {escape(meta.method_name)}")
-
-    for meta in metadata:
-        citation_text = escape(meta.primary_citation)
-        if meta.reference_url:
-            citation_text = (
-                f"{citation_text} "
-                f"(<a href=\"{escape(meta.reference_url)}\" target=\"_blank\" rel=\"noopener\">reference</a>)"
-            )
-        dataset_text = ", ".join(meta.dataset_citations) if meta.dataset_citations else "Dataset citations pending ingestion."
-        dataset_text = escape(dataset_text)
-        limitations = escape(meta.limitations)
-        st.markdown(
-            f"""
-            <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
-            <strong>{escape(meta.display_name)}</strong> · v{escape(meta.version)}<br/>
-            <em>{escape(meta.method_name)}</em><br/>
-            <span style="opacity: 0.85;">{citation_text}</span><br/>
-            <span style="opacity: 0.75;">Datasets: {dataset_text}</span><br/>
-            <span style="opacity: 0.65;">Limitations: {limitations}</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.caption(
-        "Keep dataset JSON records updated with `owner`, `dataset_version`, and `source_uri` before reporting real results."
-    )
-
 
 def render_control_panel() -> None:
     """
@@ -741,7 +805,7 @@ def render_control_panel() -> None:
     elif section == "Experiments":
         _render_experiments(experiments, mode)
     elif section == "Jobs":
-        _render_jobs(jobs, mode)
+        _render_jobs(jobs, datasets, audit_events, mode)
     elif section == "Datasets":
         _render_datasets(datasets, mode)
     elif section == "Modules":
@@ -751,4 +815,4 @@ def render_control_panel() -> None:
     elif section == "Workspace / Drawing":
         render_drawing_tool(mode)
 
-    _render_method_and_data_footer(method_metadata_registry)
+    render_method_and_data_footer(method_metadata_registry, audit_events, mode)

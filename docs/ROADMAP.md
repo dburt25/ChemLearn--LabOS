@@ -16,13 +16,19 @@ Summarizes planned phases and focus areas for ChemLearn LabOS.
 
 ## Phase 3 — Scientific Module Wave 1 (Next)
 - Promote EI-MS/P-Chem/import flows into runnable pipelines with provenance links created by `labos/core/provenance.py`.
-- Add CLI/Control Panel triggers that execute modules and emit Jobs/Datasets with validation fixtures.
+- Bring OrgChem + Proteomics stubs online with validation scaffolds while adding CLI/Control Panel triggers that emit Jobs/Datasets.
+- Primary subsystems: `modules.eims`, `modules.pchem`, `modules.import_wizard`, `modules.org_chem`, `modules.proteomics`, provenance overlays.
+- Key bots: EI-MS Module, PChem Module, OrgChem Module, Proteomics Module, Import & Provenance, Testing & Validation.
 
-## Phase 4 — Control Panel & Modes
-- Expand Workspace/3D visualization, add task dashboards, and wire Clinical Boundary defaults into UI + CLI experiences.
+## Phase 4 — Control Surfaces, Simulation, and ML Explainability
+- Expand Workspace/3D visualization, add task dashboards, wire Clinical Boundary defaults, and introduce simulation + ML guardrails.
+- Primary subsystems: `ui.control_panel`, `ui.workspace` (3D), `modules.simulation`, `modules.ml_upgrade`, CLI run controls, storage/provenance connectors.
+- Key bots: Simulation Engine, Workspace & Visualization, UI Integration, ML Upgrade, Testing & Validation.
 
-## Phase 5 — Advanced Capabilities
-- Ship proteomics + simulation modules, connect visualization layers, and activate ML upgrade plan.
+## Phase 5 — Advanced Orchestration & Integrations
+- Swarm orchestration/CI tightened, CLI/storage hardened, compliance dashboards prepared for external-facing runs.
+- Focus on data/storage lifecycle policies, automation hooks, and governance documentation to support deployment planning.
+- Key bots: Swarm Orchestrator, CLI & Interface, Data & Storage Integrity, Compliance & Legal, Testing & Validation.
 
 ## Phase 6+ — Clinical Hardening
 - Enforce Clinical Boundary Mode, prepare QMS integrations, and finalize external audit playbooks.
