@@ -28,6 +28,18 @@ class ModuleMetadata:
     reference_url: str = ""
     version: str = "0.1.0"
 
+    def to_dict(self) -> Dict[str, str | List[str]]:
+        return {
+            "key": self.key,
+            "display_name": self.display_name,
+            "method_name": self.method_name,
+            "primary_citation": self.primary_citation,
+            "dataset_citations": list(self.dataset_citations),
+            "limitations": self.limitations,
+            "reference_url": self.reference_url,
+            "version": self.version,
+        }
+
 
 class ModuleRegistry:
     """
