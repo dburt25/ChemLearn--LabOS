@@ -115,7 +115,9 @@ class ControlPanelSmokeTest(unittest.TestCase):
             stack.enter_context(mock.patch.object(control_panel, "_render_sidebar", return_value=None))
             stack.enter_context(mock.patch.object(control_panel, "_render_mode_banner", return_value=None))
             stack.enter_context(mock.patch.object(control_panel, "_render_overview", mock_overview))
-            stack.enter_context(mock.patch.object(control_panel, "_render_method_and_data_footer", return_value=None))
+            stack.enter_context(
+                mock.patch.object(control_panel, "render_method_and_data_footer", return_value=None)
+            )
             stack.enter_context(mock.patch.object(control_panel, "_load_experiments", return_value=[]))
             stack.enter_context(mock.patch.object(control_panel, "_load_datasets", return_value=[]))
             stack.enter_context(mock.patch.object(control_panel, "_load_jobs", return_value=[]))

@@ -3,7 +3,17 @@ from __future__ import annotations
 from html import escape
 from typing import Any, Sequence, cast
 
-import streamlit as _streamlit  # type: ignore
+try:  # pragma: no cover - allows import without optional dependency
+    import streamlit as _streamlit  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    class _MissingStreamlit:
+        def __getattr__(self, name: str) -> "None":
+            raise RuntimeError(
+                "Streamlit is not installed. Install the 'streamlit' extra or mock"
+                " 'labos.ui.provenance_footer.st' when rendering provenance footers."
+            )
+
+    _streamlit = _MissingStreamlit()
 
 from labos.core.module_registry import ModuleMetadata, ModuleRegistry as MetadataRegistry
 
