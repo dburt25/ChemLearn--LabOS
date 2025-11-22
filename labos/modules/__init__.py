@@ -82,3 +82,18 @@ def get_registry() -> ModuleRegistry:
 
 def register_descriptor(descriptor: ModuleDescriptor) -> None:
     get_registry().register(descriptor)
+
+
+_BUILTIN_STUBS = [
+    "labos.modules.eims.fragmentation_stub",
+    "labos.modules.pchem.calorimetry_stub",
+    "labos.modules.import_wizard.stub",
+]
+
+for _stub_path in _BUILTIN_STUBS:
+    try:
+        importlib.import_module(_stub_path)
+    except Exception:
+        # We intentionally swallow errors here to avoid breaking bootstrap if a stub
+        # module has unmet dependencies; such failures will surface when accessed.
+        continue

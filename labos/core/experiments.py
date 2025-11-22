@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator  # type: ignore[import]
 
 
 def _utc_now() -> datetime:
@@ -27,25 +26,29 @@ class ExperimentStatus(str, Enum):
     COMPLETED = "completed"
 
 
-class Experiment(BaseModel):
+def _metadata_factory() -> Dict[str, Any]:
+    return {}
+
+
+def _job_list_factory() -> List[str]:
+    return []
+
+@dataclass(slots=True)
+class Experiment:
     """Phase 0 experiment record with lightweight lineage hooks."""
 
-    model_config = ConfigDict(validate_assignment=True)
-
-    id: str = Field(..., description="Unique experiment identifier (e.g., EXP-001)")
+    id: str
     name: str
     owner: str = "local-user"
     mode: str = "Lab"
     status: ExperimentStatus = ExperimentStatus.DRAFT
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    jobs: List[str] = Field(default_factory=list, description="List of associated job IDs")
-    created_at: datetime = Field(default_factory=_utc_now)
-    updated_at: datetime = Field(default_factory=_utc_now)
+    metadata: Dict[str, Any] = field(default_factory=_metadata_factory)
+    jobs: List[str] = field(default_factory=_job_list_factory)
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
 
-    @field_validator("id", mode="before")
-    @classmethod
-    def _id_validator(cls, value: str) -> str:
-        return _validate_id(value, "EXP-")
+    def __post_init__(self) -> None:
+        self.id = _validate_id(self.id, "EXP-")
 
     def add_job(self, job_id: str) -> None:
         if job_id in self.jobs:
@@ -65,7 +68,7 @@ class Experiment(BaseModel):
         return f"{self.id} — {self.name}"
 
     def to_dict(self) -> Dict[str, Any]:  # backwards compatibility helper
-        return self.model_dump(mode="python")
+        return asdict(self)
 
     @classmethod
     def example(cls, idx: int = 1, mode: str = "Lab") -> "Experiment":

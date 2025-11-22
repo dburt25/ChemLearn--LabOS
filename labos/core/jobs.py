@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator  # type: ignore[import]
 
 
 def _utc_now() -> datetime:
@@ -27,33 +26,32 @@ class JobStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
 
+def _params_factory() -> Dict[str, Any]:
+    return {}
 
-class Job(BaseModel):
+
+def _dataset_list_factory() -> List[str]:
+    return []
+
+@dataclass(slots=True)
+class Job:
     """Phase 0 job record with start/finish helpers."""
-
-    model_config = ConfigDict(validate_assignment=True)
 
     id: str
     experiment_id: str
     kind: str
     status: JobStatus = JobStatus.QUEUED
-    params: Dict[str, Any] = Field(default_factory=dict)
-    datasets_in: List[str] = Field(default_factory=list)
-    datasets_out: List[str] = Field(default_factory=list)
+    params: Dict[str, Any] = field(default_factory=_params_factory)
+    datasets_in: List[str] = field(default_factory=_dataset_list_factory)
+    datasets_out: List[str] = field(default_factory=_dataset_list_factory)
     error_message: Optional[str] = None
-    created_at: datetime = Field(default_factory=_utc_now)
+    created_at: datetime = field(default_factory=_utc_now)
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
 
-    @field_validator("id", mode="before")
-    @classmethod
-    def _job_id_validator(cls, value: str) -> str:
-        return _validate_id(value, "JOB-")
-
-    @field_validator("experiment_id", mode="before")
-    @classmethod
-    def _exp_id_validator(cls, value: str) -> str:
-        return _validate_id(value, "EXP-")
+    def __post_init__(self) -> None:
+        self.id = _validate_id(self.id, "JOB-")
+        self.experiment_id = _validate_id(self.experiment_id, "EXP-")
 
     def start(self) -> None:
         self.status = JobStatus.RUNNING
@@ -72,7 +70,7 @@ class Job(BaseModel):
                 self.datasets_in.append(ds)
 
     def to_dict(self) -> Dict[str, Any]:
-        return self.model_dump(mode="python")
+        return asdict(self)
 
     @classmethod
     def example(cls, idx: int = 1, experiment_id: str = "EXP-001") -> "Job":
