@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    "experiment_registry",
+    "job_registry",
+    "job_runner",
+    "module_registry",
+    "module_metadata_registry",
+    "dataset_registry",
+    "audit_logger",
+    "ui.control_panel",
+    "modules.eims_stub",
+    "modules.pchem_stub",
+    "modules.import_stub"
+  ],
+  "edges": [
+    ["experiment_registry", "job_runner", "experiments spawn jobs"],
+    ["job_runner", "module_registry", "resolve operation + execute"],
+    ["module_registry", "modules.eims_stub", "auto-load builtin"],
+    ["module_registry", "modules.pchem_stub", "auto-load builtin"],
+    ["module_registry", "modules.import_stub", "auto-load builtin"],
+    ["job_runner", "audit_logger", "record job lifecycle"],
+    ["job_runner", "dataset_registry", "persist dataset metadata from module outputs"],
+    ["job_runner", "experiment_registry", "write job results under experiment context"],
+    ["ui.control_panel", "experiment_registry", "read experiments for tables"],
+    ["ui.control_panel", "job_registry", "read jobs for status"],
+    ["ui.control_panel", "dataset_registry", "read datasets for provenance"],
+    ["ui.control_panel", "module_registry", "inspect descriptors/operations"],
+    ["ui.control_panel", "module_metadata_registry", "display citations/limitations"],
+    ["audit_logger", "experiment_registry", "attach audit events on create/update"],
+    ["audit_logger", "dataset_registry", "attach audit events on create"],
+    ["audit_logger", "job_registry", "attach audit events on lifecycle changes"]
+  ]
+}
