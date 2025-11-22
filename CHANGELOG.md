@@ -55,7 +55,6 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 
 ## [0.2.2] - 2025-11-22
 ### Added
-- Phase 2 – Wave 3: Added basic CI workflow (tests on push/PR) and updated repo health checklist.
 - Phase 2 – Wave 3: Introduced storage abstraction (`labos/core/storage.py`) and documented data layout conventions.
 - Phase 2 Wave 3: initial Unified CLI with modules/experiments/demo-job commands (in-memory, demo-friendly).
 - Workspace / Drawing Tool now accepts experiment tags, notes, and reference uploads with mode-aware guidance for Learner/Lab/Builder contexts.
