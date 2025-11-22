@@ -17,12 +17,12 @@ from .storage import JSONFileStore
 
 @dataclass(slots=True)
 class Job(BaseRecord):
-    experiment_id: str
-    module_id: str
-    operation: str
-    status: JobStatus
-    parameters: Mapping[str, object]
-    actor: str
+    experiment_id: str = "EXP-unknown"
+    module_id: str = "module-unknown"
+    operation: str = "op"
+    status: JobStatus = JobStatus.PENDING
+    parameters: Mapping[str, object] = field(default_factory=dict)
+    actor: str = "labos"
     logs: list[str] = field(default_factory=list)
     result_path: Optional[str] = None
     error: Optional[str] = None

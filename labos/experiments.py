@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterable, Mapping, Optional, Sequence
 
 from .audit import AuditLogger
@@ -15,13 +15,13 @@ from .storage import JSONFileStore
 
 @dataclass(slots=True)
 class Experiment(BaseRecord):
-    user_id: str
-    title: str
-    purpose: str
-    status: ExperimentStatus
-    inputs: Mapping[str, str]
-    outputs: Mapping[str, str]
-    tags: Sequence[str]
+    user_id: str = "unknown"
+    title: str = "untitled"
+    purpose: str = ""
+    status: ExperimentStatus = ExperimentStatus.DRAFT
+    inputs: Mapping[str, str] = field(default_factory=dict)
+    outputs: Mapping[str, str] = field(default_factory=dict)
+    tags: Sequence[str] = field(default_factory=tuple)
 
     @classmethod
     def create(

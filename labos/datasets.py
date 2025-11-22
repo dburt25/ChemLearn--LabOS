@@ -15,10 +15,10 @@ from .storage import JSONFileStore
 
 @dataclass(slots=True)
 class Dataset(BaseRecord):
-    owner: str
-    dataset_type: DatasetType
-    uri: str
-    tags: Sequence[str]
+    owner: str = "unknown"
+    dataset_type: DatasetType = DatasetType.EXPERIMENTAL
+    uri: str = ""
+    tags: Sequence[str] = field(default_factory=tuple)
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     @classmethod

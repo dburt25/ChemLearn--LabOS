@@ -75,4 +75,4 @@ class BaseRecord:
 
 @dataclass(slots=True)
 class MetadataRecord(BaseRecord):
-    metadata: Mapping[str, Any]
+    metadata: Mapping[str, Any] = field(default_factory=dict)
