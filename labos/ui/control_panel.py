@@ -197,14 +197,15 @@ def _dataset_preview_text(dataset: Dataset) -> str:
 
 def _job_dataset_ids(job: Job) -> list[str]:
     ids: list[str] = []
-    parameters: Mapping[str, object] | None = job.parameters if isinstance(job.parameters, Mapping) else None
-    if not parameters:
+    params_obj = getattr(job, "parameters", None)
+    if not isinstance(params_obj, Mapping):
         return ids
+    parameters = cast(Mapping[str, object], params_obj)
     maybe_many = parameters.get("dataset_ids")
-    if isinstance(maybe_many, Sequence) and not isinstance(maybe_many, (str, bytes)):
-        ids.extend([str(item) for item in maybe_many])
+    if isinstance(maybe_many, Sequence) and not isinstance(maybe_many, (str, bytes, bytearray)):
+        ids.extend(str(item) for item in maybe_many)
     maybe_one = parameters.get("dataset_id")
-    if maybe_one:
+    if maybe_one is not None:
         ids.append(str(maybe_one))
     return list(dict.fromkeys(ids))
 
@@ -563,7 +564,7 @@ def _render_jobs(
         st.caption("Compact view keeps dataset links and audit timestamps within reach.")
 
     dataset_map = {ds.record_id: ds for ds in datasets}
-    job_rows = []
+    job_rows: list[dict[str, object]] = []
     for job in jobs:
         linked_ids = _job_dataset_ids(job)
         linked_preview = (
@@ -648,7 +649,7 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
             "This preview shows the imported dataset structure and recent actions so learners can trace provenance before running analyses."
         )
 
-    dataset_rows = [
+    dataset_rows: list[dict[str, object]] = [
         {
             "Dataset": ds.record_id,
             "Label": _dataset_label(ds),
