@@ -1,66 +1,79 @@
-"""Lightweight provenance helpers for LabOS Phase 0/1.
-
-The helpers here are intentionally in-memory only. They allow other modules to
-log relationships between imports, datasets, and experiments without assuming
-any storage backend. The resulting structures can be displayed directly in the
-UI or persisted by higher layers when available.
-"""
+"""Provenance helper utilities for jobs, datasets, and audit chains."""
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Iterable, Mapping
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 from .audit import AuditEvent
+from .datasets import DatasetRef
 
 
-def link_import_to_experiment(
-    experiment_id: str,
-    dataset_id: str,
-    actor: str | None = None,
-    notes: Mapping[str, object] | None = None,
-) -> AuditEvent:
-    """Create an audit event linking an imported dataset to an experiment."""
+def _timestamp_id(prefix: str) -> str:
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    return f"{prefix}-{ts}"
+
+
+def link_job_to_dataset(job_id: str, dataset_id: str, direction: str = "out") -> AuditEvent:
+    """Create an audit event linking a job to a dataset reference."""
+
+    if direction not in {"in", "out"}:
+        raise ValueError("direction must be 'in' or 'out'")
 
     return AuditEvent(
-        id=f"AUD-LINK-{dataset_id}-{experiment_id}",
-        actor=actor or "unknown",
+        id=_timestamp_id("AUD-LINK"),
+        actor="system",
         action="link-dataset",
-        target=experiment_id,
-        details={
-            "dataset_id": dataset_id,
-            "experiment_id": experiment_id,
-            "notes": dict(notes or {}),
-        },
+        target=job_id,
+        details={"dataset_id": dataset_id, "direction": direction},
     )
 
 
-def trace_dataset_lineage(
-    dataset_id: str,
-    audit_events: Iterable[AuditEvent | Mapping[str, object]] | None = None,
-) -> dict[str, object]:
-    """Summarize provenance from a list of audit events.
+def register_import_result(
+    experiment_id: Optional[str], job_id: Optional[str], dataset_ref: DatasetRef
+) -> Dict[str, object]:
+    """Prepare provenance records for an imported dataset.
 
-    This helper is deliberately simple: it scans the provided events for entries
-    that mention the target dataset and returns a narrative-friendly structure
-    containing the related experiment or import identifiers. It does not hit any
-    persistence layer.
+    Returns a dictionary containing the dataset, generated audit events, and
+    linkage hints that calling code can persist if desired.
     """
 
-    related_events = []
-    for event in audit_events or []:
-        if isinstance(event, AuditEvent):
-            payload = event.to_dict()
-        else:
-            payload = dict(event)
-        details = payload.get("details", {})
-        if payload.get("target") == dataset_id or details.get("dataset_id") == dataset_id:
-            related_events.append(payload)
+    events: List[AuditEvent] = []
+
+    dataset_event = AuditEvent(
+        id=_timestamp_id("AUD-DATASET"),
+        actor=dataset_ref.metadata.get("imported_by", "unknown"),
+        action="register-dataset",
+        target=dataset_ref.id,
+        details={
+            "experiment_id": experiment_id,
+            "job_id": job_id,
+            "module_key": dataset_ref.metadata.get("module_key"),
+            "path_hint": dataset_ref.path_hint,
+        },
+    )
+    events.append(dataset_event)
+
+    if job_id:
+        events.append(link_job_to_dataset(job_id, dataset_ref.id, direction="out"))
+
+    if experiment_id:
+        events.append(
+            AuditEvent(
+                id=_timestamp_id("AUD-EXP"),
+                actor="system",
+                action="link-dataset",
+                target=experiment_id,
+                details={"dataset_id": dataset_ref.id, "job_id": job_id},
+            )
+        )
 
     return {
-        "dataset_id": dataset_id,
-        "event_count": len(related_events),
-        "events": related_events,
-        "generated_at": datetime.utcnow().isoformat(),
+        "dataset": dataset_ref.to_dict(),
+        "audit_events": [event.to_dict() for event in events],
+        "links": {
+            "job_id": job_id,
+            "experiment_id": experiment_id,
+            "dataset_id": dataset_ref.id,
+        },
     }
-

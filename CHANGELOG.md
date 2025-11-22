@@ -2,6 +2,10 @@
 
 All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 
+## [Unreleased]
+### Changed
+- Phase 2 – Wave 2: import wizard + provenance helpers now link stub outputs into job/dataset/audit chains.
+
 ## [0.1.0] - 2025-11-22
 ### Added
 - LabOS Core Python package with configuration loader, audit logger, registries, runtime facade, and CLI entry point.
