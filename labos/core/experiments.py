@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator  # type: ignore
+from pydantic import BaseModel, ConfigDict, Field, field_validator  # type: ignore[import]
 
 
 def _utc_now() -> datetime:
