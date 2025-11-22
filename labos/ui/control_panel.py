@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from html import escape
 from pathlib import Path
 from typing import Any, Mapping, Sequence, cast
 
@@ -288,7 +287,7 @@ def _job_dataset_ids(job: Job) -> list[str]:
     parameters = cast(Mapping[str, object], params_obj)
     maybe_many = parameters.get("dataset_ids")
     if isinstance(maybe_many, Sequence) and not isinstance(maybe_many, (str, bytes, bytearray)):
-        ids.extend(str(item) for item in maybe_many)
+        ids.extend(str(item) for item in cast(Sequence[object], maybe_many))
     maybe_one = parameters.get("dataset_id")
     if maybe_one is not None:
         ids.append(str(maybe_one))
@@ -791,7 +790,7 @@ def _render_calorimetry_results(
         str | None, (experiment_payload or {}).get("id")
     )
 
-    summary_rows = [
+    summary_rows: list[dict[str, object]] = [
         {
             "Experiment": experiment_name or "Pending",
             "Job": job_id or "Pending",
@@ -887,7 +886,9 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
     last_payload = st.session_state.get("pchem_last_workflow")
     payload = None
     if isinstance(last_payload, Mapping):
-        payload = cast(Mapping[str, object] | None, last_payload.get("payload") or last_payload)
+        last_mapping = cast(Mapping[str, object], last_payload)
+        candidate = last_mapping.get("payload")
+        payload = cast(Mapping[str, object] | None, candidate or last_mapping)
 
     if payload:
         _render_calorimetry_results(payload, meta, mode)
