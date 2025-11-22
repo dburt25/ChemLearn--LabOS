@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 
@@ -24,7 +24,7 @@ class DatasetRef:
     id: str
     label: str
     kind: str = "table"  # e.g. "table", "spectrum", "timeseries"
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     path_hint: str | None = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -35,7 +35,7 @@ class DatasetRef:
             "kind": self.kind,
             "created_at": self.created_at.isoformat(),
             "path_hint": self.path_hint,
-            "metadata": self.metadata,
+            "metadata": dict(self.metadata),
         }
 
     @classmethod

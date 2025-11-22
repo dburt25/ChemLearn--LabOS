@@ -9,7 +9,7 @@ import streamlit as _streamlit  # type: ignore
 st: Any = cast(Any, _streamlit)
 
 
-def render_drawing_tool(mode: str) -> None:
+def render_drawing_tool(mode: str | None = None) -> None:
     """Render a lightweight workspace panel with mode-aware guidance.
 
     Design intent: keep the surface agnostic so it can host reaction schemes,
@@ -17,17 +17,24 @@ def render_drawing_tool(mode: str) -> None:
     that needs to attach to Experiments/Jobs/Datasets in later phases.
     """
 
-    st.subheader("Workspace / Drawing")
+    st.subheader("Workspace / Sketchpad")
 
-    if mode == "Learner":
-        st.info(
-            "Use this space to sketch mechanisms, instrument setups, protein binding pockets, or quick notes "
-            "before you commit them to an experiment. A proper drawable canvas will ship in a later update."
-        )
-    elif mode == "Lab":
-        st.caption("Quick scratchpad for run notes or diagrams. Upload figures when you need extra detail.")
-    else:  # Builder
-        st.caption("Workspace surface for prototype diagrams. Future versions will expose canvas debug info here.")
+    mode_message = {
+        "Learner": (
+            "Use this space to practice sketching mechanisms, instrument setups, binding sites, or quick notes "
+            "before formalizing them into an experiment. A richer canvas is coming, so focus on ideas over polish."
+        ),
+        "Lab": (
+            "Concise scratchpad for run notes or diagrams. Upload figures when you need extra detail—future versions will "
+            "keep these alongside your jobs."
+        ),
+        "Builder": (
+            "Prototype sketches here. This surface will later link diagrams to Experiments/Jobs so extensions can track "
+            "provenance."
+        ),
+    }
+
+    st.caption(mode_message.get(mode or "", "Drop quick sketches or notes to guide your next steps."))
 
     st.text_area(
         "Notes",
