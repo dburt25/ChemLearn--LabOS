@@ -1,78 +1,67 @@
-# Swarm Status — Phase 2 Alignment (2025-11-22)
+# Swarm Status – ChemLearn LabOS
+This document summarizes where the bot swarm left LabOS: current phase, shipped surfaces, remaining Phase 2 work, and how to scope new agents safely.
 
-## Current Phase Snapshot
-- **Phase:** 2 — Scientific stubs, provenance wiring, and mode-aware UI hardening.
-- **Status:** Experiments/Jobs/Datasets/Audit registries operational; ModuleMetadata feeds Control Panel; EI-MS, P-Chem, and Import Wizard stubs emit deterministic dataset/audit payloads; CHANGELOG + VALIDATION_LOG carry Phase 2 entries; targeted `python -m unittest tests.test_scientific_modules tests.test_module_registry` (5 tests) passes; full `python -m unittest` currently blocked because the environment lacks `streamlit`.
+## Current Phase
+**Phase:** 2 – Working Lab Skeleton (Experiments/Jobs/Datasets/Audit, scientific stubs, Streamlit control panel)
+- LabOS core models (Experiment, Job, DatasetRef, AuditEvent, ModuleMetadata) exist with JSON-backed storage and audit hooks.
+- Deterministic EI-MS, P-Chem, and Import Wizard stubs return dataset/audit payloads and register via ModuleRegistry metadata.
+- Streamlit control panel + workspace shell deliver Learner/Lab/Builder modes with provenance previews and Method & Data footer.
 
-### Done So Far
-- LabOS Core (experiments, jobs, datasets, audit) stabilized with ALCOA-friendly helpers.
-- Streamlit Control Panel ships Learner/Lab/Builder modes, Workspace panel, and module metadata table.
-- EI-MS, P-Chem, and Import Wizard stubs registered with provenance metadata plus unit tests.
-- Swarm governance docs, permissions, and compliance logs actively maintained.
+## Snapshot: What Exists Right Now
+### Core (LabOS Engine)
+- `labos.core` exports Experiment, Job, DatasetRef, AuditEvent, Signature, and helper registries plus workflow/provenance utilities to link imports into experiments/jobs.
+- File-backed storage (`labos/core/storage.py`) persists registry records with deterministic IDs and ALCOA-friendly audit references.
+- ModuleRegistry + metadata tables standardize module descriptors, citations, and limitations that feed UI footers.
+- CLI entry point (`labos` command) supports init, experiment creation, dataset registration, and invoking registered module ops.
+- Audit logger + `record_event` helper produce chained JSONL logs per `docs/AUDIT_LOG_FORMAT.md`.
 
-### Latest Validation Notes
-- 2025-11-22: Full `python -m unittest` run fails fast with `ModuleNotFoundError: streamlit`; targeted scientific stub + registry suites run clean (5 tests) and evidence has been logged in `VALIDATION_LOG.md`.
-- Until `streamlit` is installed in CI/venv, restrict validation to targeted suites or mock the dependency inside Control Panel tests.
+### Scientific Modules
+- EI-MS fragmentation stub emits deterministic spectra metadata with dataset + audit references.
+- P-Chem calorimetry stub returns calorimetry placeholders for demos and provenance exercises.
+- Import Wizard stub infers schemas/previews, creates DatasetRefs, and falls back to deterministic sample rows when no data is supplied.
+- Module metadata defaults live in `labos/core/module_registry.py`, aligning method names, citations, and limitations with UI display.
 
-## Upcoming Phases
+### UI / Control Panel
+- Streamlit control panel renders Overview, Experiments, Jobs, Datasets, Modules, and Workspace tabs with Learner/Lab/Builder copy.
+- Provenance inspectors show dataset/job tables, expandable JSON payloads, and Method & Data footer referencing ModuleMetadata + recent audits.
+- Workspace / drawing tool offers mode-aware notes, file uploads, and hooks for future 3D visualization contracts documented in `THREED_VISUALIZATION_PLAN.md`.
+- Run-button placeholders and TODO cues exist in Modules & Operations area awaiting CLI/Job wiring.
 
-| Phase | Goal | Primary Subsystems |
-| --- | --- | --- |
-| 3 – Scientific Module Wave 1 | Promote EI-MS/PChem/import stubs into runnable pipelines, begin proteomics/org-chem prototyping. | modules.eims, modules.pchem, modules.import_wizard, modules.org_chem, modules.proteomics, core.labos |
-| 4 – UI Control Surfaces | Expand Control Panel + Workspace (3D viz), add task-focused dashboards and CLI parity. | ui.control_panel, ui.workspace, cli.unified, swarm.orchestration |
-| 5 – Advanced Modules & ML Upgrades | Introduce simulation engine, ML upgrade path, and advanced provenance dashboards. | modules.simulation, modules.ml_upgrade, knowledge feeds, compliance |
-| 6 – Clinical Hardening | Enforce Clinical Boundary Mode defaults, external audit readiness, QMS integration. | compliance.docs, core.labos, data/storage |
+### Tests, Validation, and Compliance
+- Unit suites cover core dataclasses, module registry metadata, scientific stubs, and import provenance helpers (see `tests/test_*`).
+- `VALIDATION_LOG.md` records manual UI runs plus `python -m unittest` evidence; CHANGELOG mirrors major increments.
+- Compliance artifacts (`COMPLIANCE_CHECKLIST.md`, `compliance-notes.md`, CLINICAL_BOUNDARY_MODE) document ALCOA expectations and research-only boundaries.
+- Streamlit imports are guarded (control panel, workspace, provenance footer) so tests run headless; targeted smoke tests rely on mocked session state.
 
-## Phase 2 Wave Plan
+## Open Tasks for This Phase
+- Complete end-to-end Experiment → Job → Module → Dataset/Audit wiring with helper APIs that persist job results back into registries.
+- Wire Run buttons + CLI pathways so UI actions or CLI commands consistently submit jobs and update registries.
+- Harden JSON storage (locking, backups, checksum validation) and document dataset/URI conventions.
+- Enforce Learner/Lab/Builder behavior (tooltips vs compact tables vs debug JSON) and ensure copy remains governance-aligned.
+- Expand tests to cover workflows (`run_import_workflow`, provenance traces) and Streamlit rendering via harnesses or dependency injection.
+- Install or vendor Streamlit in CI to unblock full `python -m unittest` without manual mocks.
+- Centralize Getting Started instructions for students/lab operators pointing to CLI + UI entry points.
+- Keep compliance docs + VALIDATION_LOG synchronized each time modules/UI/provenance behavior change.
 
-- **Wave 1 (Complete):** Bots — Core Builder, Scientific Module, UI Integration, Testing & Validation. Delivered deterministic stubs + metadata UI.
-- **Wave 2 (Complete – awaiting dependency fix for full test run):** Bots — Import & Provenance, UI Integration, Workspace & Visualization, Testing & Validation. Deliverables landed: provenance helpers ship in `labos/core/provenance.py`, Control Panel shows dataset/job inspectors, workspace hooks documented, and regression suites updated. Outstanding action: unblock full Streamlit-dependent tests.
-- **Wave 3 (Queued):** Bots — CLI & Interface, Swarm Orchestrator, Data & Storage, Testing & Validation. Objectives: add Run buttons + CLI hooks, ensure data ingestion paths promote datasets, expand validation coverage.
+## Active Bot Slots (Max 6 at a Time)
 
-### Concurrency Guidance (Phase 2)
-- Waves 1–2 can run up to four bots in parallel so long as only one bot edits a given path as defined in `SWARM_PERMISSIONS_MATRIX.md` (e.g., UI Integration vs Workspace Bot coordinate before touching `labos/ui/*`).
-- Compliance & Legal Bot runs serially at the end of each wave to close logs and check regulatory impacts.
+**Hard rule:**  
+At any given time, no more than **six** bots/agents should be running on this repo.  
+Each bot must be constrained to specific paths and responsibilities, and must NOT edit outside its lane.
 
-## Phase 3 Preview — Scientific Module Wave 1
+| Bot Slot | Intent / Name (Example)       | Allowed Paths                                         | Forbidden Paths                                     | Typical Tasks                                                |
+| --- | --- | --- | --- | --- |
+| 1 | Core Schema / Workflow Bot   | `labos/core/**`                                      | `labos/ui/**`, `labos/modules/**`                  | Experiments/Jobs/Datasets/Audit models & orchestration      |
+| 2 | EI-MS Module Bot             | `labos/modules/ei_ms/**`, `docs/ei_ms/**`            | `labos/ui/**`, `labos/core/**`                     | EI-MS fragmentation logic, helpers, docs                     |
+| 3 | PChem Module Bot             | `labos/modules/pchem/**`, `docs/pchem/**`            | `labos/ui/**`, `labos/core/**`                     | PChem calculators, error propagation, docs                   |
+| 4 | UI / Control Panel Bot       | `labos/ui/**`                                        | `labos/core/**`, `labos/modules/**`                | Layout, modes (Learner/Lab/Builder), panels, workspace UX    |
+| 5 | Testing & Validation Bot     | `tests/**`, `VALIDATION_LOG.md`, `BINARY_ASSET_HANDLING.md` | `labos/ui/**` (unless UI tests), core/module logic | Add/extend tests, record validation runs, test coverage      |
+| 6 | Docs & Compliance Bot        | `README.md`, `docs/**`, `COMPLIANCE_CHECKLIST*.md`, `compliance-notes.md`, `DEVELOPMENT_GUIDE.md`, `VISION.md` | Any `*.py` files                                    | Update docs, checklists, dev guides, high-level notes        |
 
-- **Wave A (Kickoff):** Bots — EI-MS Module, PChem Module, Import & Provenance, Testing & Validation. Goal: promote stubs into runnable workflows, capture datasets/jobs/audits end-to-end.
-- **Wave B:** Bots — Proteomics Module, OrgChem Module, Simulation Engine. Goal: baseline new domain plans with schemas + validation scaffolds.
-- **Wave C:** Bots — UI Integration, CLI & Interface, Compliance & Legal. Goal: surface new module controls, document governance, update permissions per new domains.
 
-### Phase 3 Wave Plan (parallel-safe sets)
-
-| Wave ID | Bots | Safe Parallel Sets | Depends On |
-| --- | --- | --- | --- |
-| 3A | EI-MS Module Bot, PChem Module Bot, Import & Provenance Bot, Testing & Validation Bot | {EI-MS Module Bot, PChem Module Bot} share no module paths; Import & Provenance Bot can run alongside if avoiding `labos/core/workflows.py` collisions; Testing & Validation Bot runs after module commits. | Phase 2 provenance/UI hardening complete; CLI hooks from Phase 2 Wave 3 available. |
-| 3B | Proteomics Module Bot, OrgChem Module Bot, Simulation Engine Bot (docs/architecture), Testing & Validation Bot | Proteomics + OrgChem can run in parallel while respecting `SWARM_PERMISSIONS_MATRIX` module folders; Simulation Bot limited to docs/architecture to avoid runtime conflicts; Testing Bot executes post-merge. | Wave 3A validation complete; storage/provenance patterns established. |
-| 3C | UI Integration Bot, CLI & Interface Bot, Compliance & Legal Bot, Import & Provenance Bot (if follow-ups) | UI + CLI can proceed in parallel when editing distinct files; Compliance Bot runs serially after code merges; Import & Provenance follow-ups coordinate with UI to avoid overlapping files. | Waves 3A–3B validated; permissions matrix updated. |
-
-Keep this status document synchronized with `MASTER_BLUEPRINT_INDEX.md`, `SWARM_PLAYBOOK.md`, and `SWARM_PERMISSIONS_MATRIX.md` whenever roles or schedules change.
-
-## Wave 2 Execution Blueprint
-
-| Bot | Directory Scope | Tasks | Human Verification |
-| --- | --- | --- | --- |
-| Import & Provenance Bot | `labos/modules/import_wizard/*`, `labos/core/provenance.py`, `labos/core/module_registry.py`, `labos/core/workflows.py`, `tests/test_scientific_modules.py` | 1) Add helpers to promote module stub outputs into Jobs/Datasets with provenance links; 2) Ensure Import Wizard summary returns both legacy `audit` and new richer schema preview; 3) Update module metadata/provenance docs as needed. | `& .venv/Scripts/python.exe -m unittest tests.test_scientific_modules tests.test_module_registry`; review updated datasets/jobs JSON if generated. |
-| UI Integration Bot | `labos/ui/control_panel.py`, `labos/ui/__init__.py`, provenance footer helper (if added) | 1) Surface provenance details (dataset/audit preview, module metadata) in Jobs/Datasets panels; 2) Add TODO placeholders for Run buttons; 3) Keep mode-specific copy aligned with governance docs. | `& .venv/Scripts/python.exe -m unittest tests.test_module_registry`; optional `streamlit run app.py` smoke check. |
-| Workspace & Visualization Bot | `labos/ui/drawing_tool.py`, `docs/THREED_VISUALIZATION_PLAN.md`, `docs/METHOD_AND_DATA.md` | 1) Keep workspace generic but add hooks for linking scratchpad notes/files to experiments; 2) Document upcoming 3D visualization data contract; 3) Avoid altering other UI sections without coordination. | Manual review via `streamlit run app.py` (Workspace tab) and lint doc changes. |
-| Testing & Validation Bot | `tests/*`, `VALIDATION_LOG.md`, `CHANGELOG.md` (test notes) | 1) Expand tests covering provenance helpers and UI shims (Streamlit harness); 2) Ensure deterministic fixtures for Import Wizard / Control Panel; 3) Log executed suites and evidence in `VALIDATION_LOG.md`. | After bot completes, rerun `& .venv/Scripts/python.exe -m unittest tests.test_scientific_modules tests.test_module_registry`; verify validation log entries. |
-
-### Wave 2 Prompts (for Codex bots)
-1. **Import & Provenance Bot Prompt:** “Phase 2 – Wave 2: Wire stub outputs (EI-MS, P-Chem, Import Wizard) into job/dataset provenance. Touch only `labos/modules/import_wizard`, `labos/core/provenance.py`, `labos/core/workflows.py`, `labos/core/module_registry.py`, and relevant tests. Ensure `run_import_stub` stays backward compatible while exposing richer helper(s). Add tests proving datasets/audit linkage.”
-2. **UI Integration Bot Prompt:** “Phase 2 – Wave 2 UI: In `labos/ui/control_panel.py` (and helpers) surface dataset/audit provenance for Jobs and Datasets tables, enhance the Method & Data footer, and leave TODO cues for Run buttons. Coordinate with Workspace Bot; do not modify drawing_tool.py. Update tests if Control Panel imports change.”
-3. **Workspace & Visualization Bot Prompt:** “Phase 2 – Wave 2 Workspace: Keep `labos/ui/drawing_tool.py` generic while adding hooks to link scratchpad uploads/notes to experiments for future provenance. Document the visualization contract in `THREED_VISUALIZATION_PLAN.md` or `METHOD_AND_DATA.md`. Avoid changes outside workspace scope.”
-4. **Testing & Validation Bot Prompt:** “Phase 2 – Wave 2 Testing: Extend `tests/*` to cover provenance helpers and Control Panel stubs, refresh Streamlit harness if needed, and document executed suites in `VALIDATION_LOG.md`. Do not modify runtime logic except where tests require helper shims.”
-
-### Post-Wave Validation Sequence
-1. Run targeted tests: `& .venv/Scripts/python.exe -m unittest tests.test_scientific_modules tests.test_module_registry`.
-2. Launch Control Panel (`streamlit run app.py`) to verify provenance UI changes.
-3. Review Workspace tab manually for new hooks/notes.
-4. Confirm `VALIDATION_LOG.md` reflects executed suites and `CHANGELOG.md` captures Wave 2 highlights (via Testing Bot or follow-up Compliance Bot).
-5. Install or mock `streamlit` so the full `python -m unittest` sweep can run in CI before promoting Phase 3 bots.
-
-## Next Codex Bot Tasks
-1. **CLI & Run Controls Bot** — Scope `labos/cli.py`, `docs/UNIFIED_CLI_SPEC.md`, and Control Panel Run placeholders to add job submission pathways plus smoke tests that call `labos.cli:main` with sample arguments.
-2. **Data & Storage Integrity Bot** — Harden `labos/storage.py` (JSON file-store) with checksum validation, backups, and concurrency-safe writes; add regression tests covering experiment/job/dataset persistence.
-3. **Provenance Surfacing Bot** — Extend datasets/jobs inspectors to link back to experiments via the helpers in `labos/core/provenance.py` and emit breadcrumb UI copy in Builder mode.
-4. **Dependency & Test Harness Bot** — Update `requirements.txt` / CI notes to include `streamlit`, add import guards for headless environments, and keep `tests/test_module_registry.py` resilient with mocks when UI packages are absent.
+## Historical Notes
+- Phase 0 bots created the repo scaffold, governance docs, compliance notes, and initial CHANGELOG/VALIDATION_LOG processes.
+- Phase 1 delivered the LabOS core package, JSON audit logger, CLI skeleton, and placeholder tests for exported dataclasses.
+- Early Phase 2 introduced deterministic EI-MS, P-Chem, and Import Wizard stubs plus ModuleMetadata feeding the Method & Data footer.
+- Phase 2 Wave 2 expanded provenance helpers, Control Panel inspectors, and workspace hooks while documenting 3D visualization plans and Run-button TODOs.
+- Phase 2 Wave 3 work-in-progress adds CLI refinements, storage abstraction, CI workflow, and import provenance tests to keep datasets/jobs traceable.

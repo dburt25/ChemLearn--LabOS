@@ -38,6 +38,8 @@ ChemLearn LabOS is a faith-aligned lab operating system that coordinates experim
 2. Define structured data stores and provenance tracking under `data/` per `DATA_ARCHITECTURE.md`.
 3. Prototype the control panel shell and connect initial scientific modules.
 
+- [Swarm Status](docs/SWARM_STATUS.md) – Current phase, shipped surfaces, and active bot slots.
+
 ## Binary Assets
 Large artifacts exported from CODEX or similar tools must be tracked through Git Large File Storage (LFS). Install Git LFS locally, keep binaries under `artifacts/` or `datasets/`, and follow `docs/BINARY_ASSET_HANDLING.md` to stay within GitHub limits.
 
