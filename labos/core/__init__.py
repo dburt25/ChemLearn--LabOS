@@ -1,5 +1,28 @@
-"""Shared core utilities for ChemLearn LabOS."""
+# labos/core/__init__.py
 
-from . import errors, types, utils
+"""
+Core domain objects for LabOS.
 
-__all__ = ["errors", "types", "utils"]
+These classes are intentionally lightweight "records" that:
+- Capture parameters
+- Are easy to log and serialize
+- Are compatible with ALCOA+ style audit trails later
+
+They are NOT yet tied to any database or external system.
+"""
+
+from .experiments import Experiment
+from .jobs import Job
+from .datasets import DatasetRef
+from .audit import AuditEvent
+from .module_registry import ModuleMetadata, ModuleRegistry
+
+__all__ = [
+    "Experiment",
+    "Job",
+    "DatasetRef",
+    "AuditEvent",
+    "ModuleMetadata",
+    "ModuleRegistry",
+]
+

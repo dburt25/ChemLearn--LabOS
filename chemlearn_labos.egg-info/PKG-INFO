@@ -1,3 +1,16 @@
+Metadata-Version: 2.4
+Name: chemlearn-labos
+Version: 0.1.0
+Summary: ChemLearn LabOS core scaffolding
+Author-email: ChemLearn Swarm <labs@chemlearn.example>
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
 # ChemLearn LabOS
 
 ChemLearn LabOS is a faith-aligned lab operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The repository is currently in **Phase 0 (Bootstrap)**, which means only scaffolding, governance docs, and placeholders are being created—no production logic exists yet.

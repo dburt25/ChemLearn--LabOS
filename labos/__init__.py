@@ -1,23 +1,30 @@
-"""ChemLearn LabOS core package.
+# labos/__init__.py
 
-The package exposes helpers for loading configuration, interacting with
-registries, and invoking the CLI entry point. Importing this module does not
-perform any I/O so it remains safe for unit tests.
+"""
+LabOS Core Package
+
+This package defines the foundational building blocks for ChemLearn LabOS:
+- Experiments
+- Jobs
+- Datasets
+- Audit logging
+- Module registry / method provenance
+
+Phase 0: skeleton only, no heavy logic. This is the spine the rest of the system
+will grow around.
 """
 
-from __future__ import annotations
+from .core.experiments import Experiment
+from .core.jobs import Job
+from .core.datasets import DatasetRef
+from .core.audit import AuditEvent
+from .core.module_registry import ModuleMetadata, ModuleRegistry
 
-from importlib.metadata import version, PackageNotFoundError
-
-from .config import LabOSConfig
-
-__all__ = ["LabOSConfig", "get_version"]
-
-
-def get_version() -> str:
-	"""Return the installed LabOS package version for logging purposes."""
-
-	try:
-		return version("chemlearn-labos")
-	except PackageNotFoundError:  # pragma: no cover - fallback for local runs
-		return "0.1.0"
+__all__ = [
+    "Experiment",
+    "Job",
+    "DatasetRef",
+    "AuditEvent",
+    "ModuleMetadata",
+    "ModuleRegistry",
+]
