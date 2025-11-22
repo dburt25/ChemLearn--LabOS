@@ -9,6 +9,7 @@ Phase 0:
 """
 
 from .control_panel import render_control_panel
+from .provenance_footer import render_method_and_data_footer
 
-__all__ = ["render_control_panel"]
+__all__ = ["render_control_panel", "render_method_and_data_footer"]
 

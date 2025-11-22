@@ -18,6 +18,11 @@ Snapshot of the layered ChemLearn LabOS design.
 - Registries persist one record per JSON file under `data/<domain>/`, keeping history in git-friendly structures.
 - `LabOSRuntime` bundles config, audit, registries, and the job runner for CLI and future service entrypoints.
 
+## CLI Snapshot (Phase 2)
+- The `labos.cli` package exposes a minimal "Unified CLI" with safe, in-memory commands.
+- `labos-cli modules` surfaces `ModuleRegistry` entries for provenance awareness.
+- `labos-cli experiments` and `labos-cli demo-job` generate example `Experiment`/`Job` records to demonstrate workflows without persistence.
+
 ## Future Artifacts
 - Sequence diagrams once interfaces stabilize.
 - Deployment topologies after infra decisions.

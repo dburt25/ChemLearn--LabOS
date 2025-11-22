@@ -6,6 +6,7 @@ Use this checklist before major merges or phase transitions.
 - [ ] Vision and invariants reviewed this phase
 - [ ] CHANGELOG updated (Phase 1+)
 - [ ] Validation evidence logged
+- [x] Storage abstraction defined (Phase 2)
 
 ## Code & Tests
 - [ ] Lint/tests passing locally
@@ -21,3 +22,4 @@ Use this checklist before major merges or phase transitions.
 ## Data Hygiene
 - [ ] No raw PHI/PII committed
 - [ ] Large binaries tracked via LFS
+- [x] Data layout directories defined/seeded
