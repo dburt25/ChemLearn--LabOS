@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+from uuid import uuid4
 
 
 @dataclass
@@ -26,7 +27,7 @@ class AuditEvent:
     actor: str
     action: str
     target: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     details: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -48,3 +49,16 @@ class AuditEvent:
             target="LabOS",
             details={"phase": "Phase 0 skeleton"},
         )
+
+
+def record_event(actor: str, action: str, target: str, details: Optional[Dict[str, Any]] = None) -> AuditEvent:
+    """Create a simple audit event with a generated identifier."""
+
+    event_id = f"AUD-{uuid4()}"
+    return AuditEvent(
+        id=event_id,
+        actor=actor,
+        action=action,
+        target=target,
+        details=details or {},
+    )

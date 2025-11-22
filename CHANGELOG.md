@@ -38,3 +38,4 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Module metadata defaults (including Import Wizard) surfaced in the Control Panel to show method names, placeholder citations, and limitations for each stub.
 ### Changed
 - `tests/test_module_registry.py` now asserts the Phase 2 metadata entries and provides a lightweight Streamlit stub so registry tests run without UI dependencies.
+- Core schema refinements: experiment/job lifecycle helpers, richer dataset references, and audit/module metadata helper coverage.
