@@ -38,3 +38,9 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Module metadata defaults (including Import Wizard) surfaced in the Control Panel to show method names, placeholder citations, and limitations for each stub.
 ### Changed
 - `tests/test_module_registry.py` now asserts the Phase 2 metadata entries and provides a lightweight Streamlit stub so registry tests run without UI dependencies.
+
+## [0.2.1] - 2025-11-22
+### Changed
+- Control Panel sections now react to Learner, Lab, and Builder modes with tailored explanations, compact lab tables, and builder-friendly raw payloads.
+- Modules panel blends the module registry with method metadata to show display names, methods, citations (truncated), limitations, and debug payloads, plus an expanded Method & Data footer highlighting future versioning/validation.
+- Workspace navigation explicitly routes to the drawing surface so mode-aware scratchpad guidance is available from the main sidebar.
