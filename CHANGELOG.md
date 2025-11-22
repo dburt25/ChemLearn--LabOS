@@ -41,4 +41,6 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 
 ## [0.2.1] - 2025-11-22
 ### Added
+- Data Import Wizard helpers that infer schemas for in-memory tables, emit DatasetRef metadata, and generate audit events for imports.
+- Provenance utilities to link imported datasets to experiments and trace lineage in-memory.
 - Workflow helpers for pairing experiments, jobs, datasets, and audit events via `labos/core/workflows.py`.
