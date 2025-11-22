@@ -123,6 +123,29 @@ def infer_schema(df_or_records: object) -> dict:
     return {"fields": fields, "row_count": rows}
 
 
+def build_preview(df_or_records: object, max_rows: int = 5) -> dict:
+    """Build a small preview payload for UI consumption."""
+
+    rows: list[Mapping[str, object]] = []
+
+    try:  # optional dependency
+        import pandas as pd  # type: ignore
+    except Exception:  # pragma: no cover - pandas optional
+        pd = None  # type: ignore
+
+    if pd is not None and isinstance(df_or_records, pd.DataFrame):
+        preview_df = df_or_records.head(max_rows)
+        rows = preview_df.to_dict(orient="records")
+    elif isinstance(df_or_records, Mapping):
+        rows = [df_or_records]
+    elif isinstance(df_or_records, Sequence) and not isinstance(
+        df_or_records, (str, bytes, bytearray)
+    ):
+        rows = [r for r in df_or_records if isinstance(r, Mapping)][:max_rows]
+
+    return {"rows": rows, "row_count": len(rows)}
+
+
 def create_dataset_ref_from_import(
     data: object,
     source: str | None = None,
@@ -134,6 +157,7 @@ def create_dataset_ref_from_import(
     """Create a DatasetRef based on imported data and inferred schema."""
 
     schema = infer_schema(data)
+    preview = build_preview(data)
     timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
     dataset_id = f"DS-IMPORT-{timestamp}"
     display_label = label or "Imported dataset"
@@ -144,6 +168,7 @@ def create_dataset_ref_from_import(
         "source_type": source_type,
         "imported_by": actor or "unknown",
         "schema": schema,
+        "preview": preview,
     }
     return DatasetRef(
         id=dataset_id,
@@ -170,6 +195,7 @@ def build_import_summary(
         source_type=source_type,
     )
     schema = dataset_ref.metadata.get("schema", {})
+    preview = dataset_ref.metadata.get("preview", {})
     audit_event = AuditEvent(
         id=f"AUD-IMPORT-{dataset_ref.id}",
         actor=actor or "unknown",
@@ -181,31 +207,27 @@ def build_import_summary(
             "source_type": source_type,
             "schema": schema,
             "row_count": schema.get("row_count"),
+            "preview": preview,
             "notes": dict(notes or {}),
         },
     )
-    preview_rows = []
-    if isinstance(data, Mapping):
-        preview_rows.append(data)
-    elif isinstance(data, Sequence) and not isinstance(data, (str, bytes, bytearray)):
-        for item in data[:5]:  # type: ignore[index]
-            if isinstance(item, Mapping):
-                preview_rows.append(item)
 
     summary = {
         "module_key": MODULE_KEY,
         "dataset": dataset_ref.to_dict(),
+        "audit": audit_event.to_dict(),
         "audit_events": [audit_event.to_dict()],
-        "preview": preview_rows,
+        "preview": preview,
         "status": "imported",
         "schema": schema,
     }
     return summary
 
 
-def run_import_stub(params: Mapping[str, object]) -> dict[str, object]:
+def run_import_stub(params: Mapping[str, object] | None = None) -> dict[str, object]:
     """Module operation entrypoint compatible with the module registry."""
 
+    params = params or {}
     data = params.get("data")
     source = params.get("source") or params.get("path")
     actor = params.get("actor") or "labos.stub"

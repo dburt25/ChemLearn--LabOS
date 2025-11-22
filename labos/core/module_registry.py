@@ -96,7 +96,10 @@ class ModuleRegistry:
                 method_name="Schema-guided dataset onboarding",
                 primary_citation="See CITATIONS.md (Data Import / General Data Handling placeholder).",
                 dataset_citations=["Internal onboarding datasets (Phase 2 placeholders)."],
-                limitations="Educational and development only. Not validated for clinical use.",
+                limitations=(
+                    "Educational and development only. Not validated for clinical use. "
+                    "Provenance is stubbed but wired for dataset/audit linkage."
+                ),
                 reference_url="https://doi.org/10.0000/placeholder-import",
                 version="0.1.0",
             )
