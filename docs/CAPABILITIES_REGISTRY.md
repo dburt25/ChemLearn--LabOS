@@ -16,9 +16,11 @@ Master list of scientific and operational capabilities that LabOS offers.
 | module.import_wizard_stub | Import wizard stub | Emits dataset/audit placeholders for data onboarding scenarios without touching real files. | `labos.modules.import_wizard.stub` | 2 | stub |
 | ui.control_panel_modes | Control Panel modes | Streamlit Control Panel with Learner/Lab/Builder banners, tips, and mode-aware copy. | `labos.ui.control_panel` | 1 | implemented |
 | ui.module_inspector | Module inspector | UI section exposing registered module descriptors/operations for safe inspection across modes. | `labos.ui.control_panel`, `labos.modules` | 1 | implemented |
-| core.provenance_services | Provenance helpers | Lightweight helpers for linking datasets, audit events, and experiments plus `ModuleMetadata` enriched provenance feeds. | `labos.core.module_registry`, `labos.core.provenance` | 2 | in-progress |
+| core.provenance_services | Provenance helpers | Helpers such as `link_import_to_experiment` and `trace_dataset_lineage` connect datasets, jobs, audits, and experiments with metadata-backed breadcrumbs. | `labos.core.module_registry`, `labos.core.provenance` | 2 | implemented |
+| core.json_filestore | JSON file-store backend | Shared persistence utility writing experiments/jobs/datasets/audits to JSON with deterministic IDs and timestamps. | `labos.storage` | 1 | implemented |
 | ui.workspace_panel | Workspace & drawing tool | Mode-aware scratchpad + upload placeholder, future upgrade path to 3D visualization. | `labos.ui.drawing_tool`, `THREED_VISUALIZATION_PLAN.md` | 2 | implemented |
-| cli.unified_spec | Unified CLI specification | Draft command set (`init`, `run`, `audit`, `module`) for orchestrating experiments/jobs/provenance. | `docs/UNIFIED_CLI_SPEC.md`, `labos/cli.py` | 1 | planned |
+| ui.provenance_inspectors | Dataset/job inspectors | Control Panel sections show dataset/job tables plus expandable JSON inspectors with Builder-mode provenance copy. | `labos.ui.control_panel` | 2 | implemented |
+| cli.unified_spec | Unified CLI entry point | `labos.cli:main` currently supports `init`, `experiment`, `dataset`, and `module` subcommands aligned with the UNIFIED_CLI_SPEC draft. | `docs/UNIFIED_CLI_SPEC.md`, `labos/cli.py` | 2 | alpha |
 | swarm.permissions_orchestration | Swarm governance + permissions matrix | Documents roles, permissions, and scheduling needed for multi-bot execution. | `docs/SWARM_PLAYBOOK.md`, `docs/SWARM_PERMISSIONS_MATRIX.md`, `docs/SWARM_STATUS.md` | 2 | implemented |
 
 ## Maintenance Rules

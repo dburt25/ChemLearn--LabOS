@@ -8,7 +8,19 @@ from html import escape
 from pathlib import Path
 from typing import Any, Sequence, cast
 
-import streamlit as _streamlit  # type: ignore
+try:  # pragma: no cover - imported at module import time only
+    import streamlit as _streamlit  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - allows tests to run without dependency
+    class _MissingStreamlit:
+        """Minimal stub that raises a helpful error if Streamlit is unavailable."""
+
+        def __getattr__(self, name: str) -> "None":
+            raise RuntimeError(
+                "Streamlit is not installed. Install the 'streamlit' extra or patch 'labos.ui.control_panel.st'"
+                " in tests before calling UI helpers."
+            )
+
+    _streamlit = _MissingStreamlit()
 
 st: Any = cast(Any, _streamlit)
 

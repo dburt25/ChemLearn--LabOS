@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 from labos.modules.eims.fragmentation_stub import MODULE_KEY as EIMS_KEY, run_eims_stub
 from labos.modules.import_wizard.stub import MODULE_KEY as IMPORT_KEY, run_import_stub
 from labos.modules.pchem.calorimetry_stub import MODULE_KEY as PCHEM_KEY, run_calorimetry_stub

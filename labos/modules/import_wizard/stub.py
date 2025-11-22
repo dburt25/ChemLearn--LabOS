@@ -203,9 +203,14 @@ def build_import_summary(
     return summary
 
 
-def run_import_stub(params: Mapping[str, object]) -> dict[str, object]:
-    """Module operation entrypoint compatible with the module registry."""
+def run_import_stub(params: Mapping[str, object] | None = None) -> dict[str, object]:
+    """Module operation entrypoint compatible with the module registry.
 
+    When called directly (e.g., unit tests) the params argument is optional and
+    defaults to an empty mapping.
+    """
+
+    params = params or {}
     data = params.get("data")
     source = params.get("source") or params.get("path")
     actor = params.get("actor") or "labos.stub"

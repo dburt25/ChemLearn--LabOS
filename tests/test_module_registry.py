@@ -6,9 +6,14 @@ import contextlib
 import sys
 import types
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, Mapping, cast
 from unittest import mock
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from labos.core.module_registry import ModuleRegistry as MetadataRegistry
 from labos.modules import ModuleDescriptor, ModuleOperation, ModuleRegistry, get_registry

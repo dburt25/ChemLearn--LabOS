@@ -2,13 +2,17 @@
 
 ## Current Phase Snapshot
 - **Phase:** 2 — Scientific stubs, provenance wiring, and mode-aware UI hardening.
-- **Status:** Experiments/Jobs/Datasets/Audit registries operational; ModuleMetadata feeds Control Panel; EI-MS, P-Chem, and Import Wizard stubs emit deterministic dataset/audit payloads; CHANGELOG + VALIDATION_LOG carry Phase 2 entries; tests cover registries and stub outputs.
+- **Status:** Experiments/Jobs/Datasets/Audit registries operational; ModuleMetadata feeds Control Panel; EI-MS, P-Chem, and Import Wizard stubs emit deterministic dataset/audit payloads; CHANGELOG + VALIDATION_LOG carry Phase 2 entries; targeted `python -m unittest tests.test_scientific_modules tests.test_module_registry` (5 tests) passes; full `python -m unittest` currently blocked because the environment lacks `streamlit`.
 
 ### Done So Far
 - LabOS Core (experiments, jobs, datasets, audit) stabilized with ALCOA-friendly helpers.
 - Streamlit Control Panel ships Learner/Lab/Builder modes, Workspace panel, and module metadata table.
 - EI-MS, P-Chem, and Import Wizard stubs registered with provenance metadata plus unit tests.
 - Swarm governance docs, permissions, and compliance logs actively maintained.
+
+### Latest Validation Notes
+- 2025-11-22: Full `python -m unittest` run fails fast with `ModuleNotFoundError: streamlit`; targeted scientific stub + registry suites run clean (5 tests) and evidence has been logged in `VALIDATION_LOG.md`.
+- Until `streamlit` is installed in CI/venv, restrict validation to targeted suites or mock the dependency inside Control Panel tests.
 
 ## Upcoming Phases
 
@@ -22,7 +26,7 @@
 ## Phase 2 Wave Plan
 
 - **Wave 1 (Complete):** Bots — Core Builder, Scientific Module, UI Integration, Testing & Validation. Delivered deterministic stubs + metadata UI.
-- **Wave 2 (In Flight):** Bots — Import & Provenance, UI Integration, Workspace & Visualization, Testing & Validation. Objectives: wire stub outputs into jobs/datasets, expose provenance across UI, harden workspace hooks, and expand regression coverage.
+- **Wave 2 (Complete – awaiting dependency fix for full test run):** Bots — Import & Provenance, UI Integration, Workspace & Visualization, Testing & Validation. Deliverables landed: provenance helpers ship in `labos/core/provenance.py`, Control Panel shows dataset/job inspectors, workspace hooks documented, and regression suites updated. Outstanding action: unblock full Streamlit-dependent tests.
 - **Wave 3 (Queued):** Bots — CLI & Interface, Swarm Orchestrator, Data & Storage, Testing & Validation. Objectives: add Run buttons + CLI hooks, ensure data ingestion paths promote datasets, expand validation coverage.
 
 ### Concurrency Guidance (Phase 2)
@@ -57,3 +61,10 @@ Keep this status document synchronized with `MASTER_BLUEPRINT_INDEX.md`, `SWARM_
 2. Launch Control Panel (`streamlit run app.py`) to verify provenance UI changes.
 3. Review Workspace tab manually for new hooks/notes.
 4. Confirm `VALIDATION_LOG.md` reflects executed suites and `CHANGELOG.md` captures Wave 2 highlights (via Testing Bot or follow-up Compliance Bot).
+5. Install or mock `streamlit` so the full `python -m unittest` sweep can run in CI before promoting Phase 3 bots.
+
+## Next Codex Bot Tasks
+1. **CLI & Run Controls Bot** — Scope `labos/cli.py`, `docs/UNIFIED_CLI_SPEC.md`, and Control Panel Run placeholders to add job submission pathways plus smoke tests that call `labos.cli:main` with sample arguments.
+2. **Data & Storage Integrity Bot** — Harden `labos/storage.py` (JSON file-store) with checksum validation, backups, and concurrency-safe writes; add regression tests covering experiment/job/dataset persistence.
+3. **Provenance Surfacing Bot** — Extend datasets/jobs inspectors to link back to experiments via the helpers in `labos/core/provenance.py` and emit breadcrumb UI copy in Builder mode.
+4. **Dependency & Test Harness Bot** — Update `requirements.txt` / CI notes to include `streamlit`, add import guards for headless environments, and keep `tests/test_module_registry.py` resilient with mocks when UI packages are absent.

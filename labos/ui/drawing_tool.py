@@ -4,7 +4,17 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-import streamlit as _streamlit  # type: ignore
+try:  # pragma: no cover - import-time guard
+    import streamlit as _streamlit  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - keeps tests runnable without optional dependency
+    class _MissingStreamlit:
+        def __getattr__(self, name: str) -> "None":
+            raise RuntimeError(
+                "Streamlit is not installed. Install the 'streamlit' extra or mock 'labos.ui.drawing_tool.st'"
+                " before rendering the workspace panel."
+            )
+
+    _streamlit = _MissingStreamlit()
 
 st: Any = cast(Any, _streamlit)
 
