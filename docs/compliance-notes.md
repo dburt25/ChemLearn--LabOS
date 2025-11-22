@@ -35,5 +35,12 @@ Use this file to capture regulatory considerations, decisions, and meeting summa
 - **Participants:** Compliance & Legal Bot, Phase 1 Coordinator
 - **Topic:** Defined lightweight workflow: audit event stub, signature placeholder, compliance docs update before merging.
 - **Actions:**
-	- Update compliance checklist to call out signatures, provenance, and log touchpoints.
-	- Keep ALCOA+ reminder in CHANGELOG/VALIDATION_LOG for each compliance-impacting change.
+        - Update compliance checklist to call out signatures, provenance, and log touchpoints.
+        - Keep ALCOA+ reminder in CHANGELOG/VALIDATION_LOG for each compliance-impacting change.
+
+## Phase 2 Traceability Notes
+AuditEvent payloads (actor, action, timestamp, checksum pointer) directly reinforce ALCOA+ by preserving who performed which change, when it occurred, what the intent was, and where the original values are referenced. Registry calls that attach `AuditEvent` IDs to BaseRecord derivatives keep the chain intact across datasets, experiments, and jobs.
+
+The ModuleRegistry catalogs source/version metadata for each method and feeds the Method & Data footer so rendered outputs carry module keys, names, citations, and stated limitations. This pairing of registry provenance and on-screen footers strengthens end-to-end traceability for method selection and downstream dataset/job creation.
+
+Limitations: LabOS is currently a development/educational scaffold and has not been validated for clinical decision support. Controls such as user authentication, environment hardening, and formal verification remain future-phase tasks; outputs should not be used to guide patient care.
