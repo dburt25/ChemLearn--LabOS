@@ -55,8 +55,6 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 
 ## [0.2.2] - 2025-11-22
 ### Added
-- Workspace / Drawing Tool now accepts experiment tags, notes, and reference uploads with mode-aware guidance for Learner/Lab/Builder contexts.
-- Documented the planned 3D visualization data contract and how Workspace artifacts will attach to Experiment provenance.
 - Phase 2 – Wave 2: Import/Provenance wiring refreshed so stub outputs feed Jobs/Datasets with lineage previews before promotion.
 - Control Panel updates show Jobs/Datasets/Method & Data previews to surface audit and dataset provenance in UI tables.
 - Workspace hooks flagged for research-only tagging to keep scratchpad uploads linked to provenance without implying clinical readiness.

@@ -19,8 +19,3 @@ Every module entry must declare:
 - Update `CITATIONS.md` whenever a module gains or changes references; set `primary_citation` to point at the relevant section.
 - Keep dataset provenance statements in sync with `dataset_citations` so audit logs can surface expected inputs.
 - When modules move beyond placeholders, add validation evidence to `VALIDATION_LOG.md` and note user-visible changes in `CHANGELOG.md`.
-
-## Workspace Artifacts (Phase 2 Hook)
-- Workspace notes, uploads, and experiment tags count as "Method & Context" data that should be linked to Experiments/Jobs when persistence arrives.
-- During Phase 2, the Streamlit UI exposes hooks to capture notes, reference images, and Experiment IDs, but storage and lineage APIs are not wired yet.
-- When persistence lands, those captured tags will be stored alongside Dataset/Experiment metadata so 3D overlays and future viewers can pull the right annotations.
