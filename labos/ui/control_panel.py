@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from html import escape
 from pathlib import Path
 from typing import Any, Sequence, cast
 
@@ -13,6 +14,7 @@ st: Any = cast(Any, _streamlit)
 
 from labos.config import LabOSConfig
 from labos.core.errors import NotFoundError
+from labos.core.module_registry import ModuleMetadata, ModuleRegistry as MetadataRegistry
 from labos.datasets import Dataset
 from labos.experiments import Experiment
 from labos.jobs import Job
@@ -79,6 +81,9 @@ def _init_session_state() -> None:
 
     if "current_section" not in st.session_state:
         st.session_state.current_section = "Overview"
+
+    if "method_metadata_registry" not in st.session_state:
+        st.session_state.method_metadata_registry = MetadataRegistry.with_phase0_defaults()
 
 
 def _generate_experiment_id() -> str:
@@ -530,20 +535,52 @@ def _render_audit_log(events: Sequence[dict[str, object]]) -> None:
             st.json(event)
 
 
-def _render_method_and_data_footer() -> None:
+def _render_method_and_data_footer(metadata_registry: MetadataRegistry) -> None:
     st.markdown("---")
     st.markdown(
         """
-        <div style="font-size: 0.85rem; opacity: 0.8;">
-        ⓘ <strong>Method &amp; Data</strong> — Phase 0 placeholder.<br/>
-        In later phases, this footer will show:
-        - Which LabOS module(s) were used
-        - Which datasets and versions were involved
-        - Validation status and limitations<br/>
-        For now, this is just a reminder that <em>every serious result must carry provenance.</em>
+        <div style="font-size: 0.9rem; opacity: 0.9;">
+        ⓘ <strong>Method &amp; Data</strong> — snapshot of placeholder provenance details.<br/>
+        Each listed method maps to <code>CITATIONS.md</code>; update that file and this registry together when you wire real science.
         </div>
         """,
         unsafe_allow_html=True,
+    )
+
+    metadata: list[ModuleMetadata] = sorted(
+        metadata_registry.all(),
+        key=lambda meta: meta.display_name.lower(),
+    )
+
+    if not metadata:
+        st.info("No method metadata registered yet. Extend labos.core.module_registry to populate this footer.")
+        return
+
+    for meta in metadata:
+        citation_text = escape(meta.primary_citation)
+        if meta.reference_url:
+            citation_text = (
+                f"{citation_text} "
+                f"(<a href=\"{escape(meta.reference_url)}\" target=\"_blank\" rel=\"noopener\">reference</a>)"
+            )
+        dataset_text = ", ".join(meta.dataset_citations) if meta.dataset_citations else "Dataset citations pending ingestion."
+        dataset_text = escape(dataset_text)
+        limitations = escape(meta.limitations)
+        st.markdown(
+            f"""
+            <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
+            <strong>{escape(meta.display_name)}</strong> · v{escape(meta.version)}<br/>
+            <em>{escape(meta.method_name)}</em><br/>
+            <span style="opacity: 0.85;">{citation_text}</span><br/>
+            <span style="opacity: 0.75;">Datasets: {dataset_text}</span><br/>
+            <span style="opacity: 0.65;">Limitations: {limitations}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.caption(
+        "Keep dataset JSON records updated with `owner`, `dataset_version`, and `source_uri` before reporting real results."
     )
 
 
@@ -560,6 +597,7 @@ def render_control_panel() -> None:
     _init_session_state()
     runtime: LabOSRuntime = st.session_state.runtime
     module_registry: ModuleRegistry = st.session_state.module_registry
+    method_metadata_registry: MetadataRegistry = st.session_state.method_metadata_registry
 
     experiments = _load_experiments(runtime)
     datasets = _load_datasets(runtime)
@@ -585,4 +623,4 @@ def render_control_panel() -> None:
     elif section == "Audit Log":
         _render_audit_log(audit_events)
 
-    _render_method_and_data_footer()
+    _render_method_and_data_footer(method_metadata_registry)

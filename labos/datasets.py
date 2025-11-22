@@ -54,11 +54,12 @@ class DatasetRegistry:
         if not dataset.owner:
             raise ValidationError("Dataset owner is required")
         self.store.save(dataset.record_id, dataset.to_dict())
-        self.audit.record(
+        event = self.audit.record(
             event_type="dataset.created",
             actor="labos.core",
             payload={"dataset_id": dataset.record_id, "owner": dataset.owner},
         )
+        dataset.attach_audit_event(event)
         return dataset
 
     def get(self, dataset_id: str) -> Dataset:

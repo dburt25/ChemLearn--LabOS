@@ -25,6 +25,8 @@ class ModuleMetadata:
     primary_citation: str    # free-form for now
     dataset_citations: List[str] = field(default_factory=list)
     limitations: str = "Phase 0 skeleton – not validated for clinical use."
+    reference_url: str = ""
+    version: str = "0.1.0"
 
 
 class ModuleRegistry:
@@ -59,6 +61,8 @@ class ModuleRegistry:
                 primary_citation="Phase 0 placeholder – insert real thermodynamics reference.",
                 dataset_citations=["Phase 0 example dataset only."],
                 limitations="Educational and development only. Not validated for clinical decisions.",
+                reference_url="https://doi.org/10.0000/placeholder-pchem",
+                version="0.1.0",
             )
         )
         registry.register(
@@ -68,6 +72,8 @@ class ModuleRegistry:
                 method_name="Rule-based + ML-augmented EI fragmentation",
                 primary_citation="Phase 0 placeholder – insert ACS-style EI-MS reference.",
                 dataset_citations=["NIST-like spectral libraries (to be wired later)."],
+                reference_url="https://doi.org/10.0000/placeholder-eims",
+                version="0.1.0",
             )
         )
         return registry

@@ -108,3 +108,19 @@ class AuditLogger:
         except json.JSONDecodeError as exc:  # pragma: no cover - corruption scenario
             raise AuditError(f"Audit log {path} is corrupted: {exc}") from exc
         return True
+
+
+def record_event(
+    event_type: str,
+    actor: str,
+    payload: Dict[str, Any],
+    *,
+    config: Optional[LabOSConfig] = None,
+    logger: Optional[AuditLogger] = None,
+) -> AuditEvent:
+    """Convenience helper that records an audit event with minimal boilerplate."""
+
+    active_logger = logger
+    if active_logger is None:
+        active_logger = AuditLogger(config or LabOSConfig.load())
+    return active_logger.record(event_type=event_type, actor=actor, payload=payload)

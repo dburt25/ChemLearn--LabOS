@@ -58,11 +58,12 @@ class ExperimentRegistry:
         if not experiment.title:
             raise ValidationError("Experiment title is required")
         self.store.save(experiment.record_id, experiment.to_dict())
-        self.audit.record(
+        event = self.audit.record(
             event_type="experiment.created",
             actor=experiment.user_id,
             payload={"experiment_id": experiment.record_id, "status": experiment.status.value},
         )
+        experiment.attach_audit_event(event)
         return experiment
 
     def update_status(self, experiment_id: str, status: ExperimentStatus) -> Experiment:
@@ -70,11 +71,12 @@ class ExperimentRegistry:
         experiment.status = status
         experiment.touch()
         self.store.save(experiment.record_id, experiment.to_dict())
-        self.audit.record(
+        event = self.audit.record(
             event_type="experiment.status",
             actor="labos.core",
             payload={"experiment_id": experiment.record_id, "status": status.value},
         )
+        experiment.attach_audit_event(event)
         return experiment
 
     def get(self, experiment_id: str) -> Experiment:

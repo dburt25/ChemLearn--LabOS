@@ -15,3 +15,11 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ### Fixed
 - Ensured `render_control_panel()` executes when `streamlit run app.py` is invoked so the Control Panel always renders.
 - Added a placeholder core smoke test that instantiates the exported Phase 0 dataclasses to guard against regressions.
+
+## [0.1.2] - 2025-11-22
+### Added
+- `audit.record_event()` helper so bots can emit ALCOA-friendly JSONL entries without wiring an `AuditLogger` manually.
+- Stub `Signature` dataclass plus BaseRecord hooks to capture intent/time/evidence for future electronic signatures.
+### Changed
+- Registries now attach audit event IDs back onto Experiment, Dataset, and Job records for traceability.
+- Compliance docs (checklist, notes, validation log) updated to reflect ModuleRegistry provenance expectations and Phase 1 workflow.

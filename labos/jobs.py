@@ -60,17 +60,18 @@ class JobRegistry:
 
     def add(self, job: Job) -> Job:
         self.store.save(job.record_id, job.to_dict())
-        self.audit.record(
+        event = self.audit.record(
             event_type="job.created",
             actor=job.actor,
             payload={"job_id": job.record_id, "experiment_id": job.experiment_id},
         )
+        job.attach_audit_event(event)
         return job
 
     def save(self, job: Job, event_type: str) -> Job:
         job.touch()
         self.store.save(job.record_id, job.to_dict())
-        self.audit.record(
+        event = self.audit.record(
             event_type=event_type,
             actor=job.actor,
             payload={
@@ -79,6 +80,7 @@ class JobRegistry:
                 "status": job.status.value,
             },
         )
+        job.attach_audit_event(event)
         return job
 
     def get(self, job_id: str) -> Job:

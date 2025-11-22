@@ -16,6 +16,7 @@ from .jobs import Job
 from .datasets import DatasetRef
 from .audit import AuditEvent
 from .module_registry import ModuleMetadata, ModuleRegistry
+from .signature import Signature
 
 __all__ = [
     "Experiment",
@@ -24,5 +25,6 @@ __all__ = [
     "AuditEvent",
     "ModuleMetadata",
     "ModuleRegistry",
+    "Signature",
 ]
 
