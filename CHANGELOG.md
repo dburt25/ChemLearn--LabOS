@@ -57,6 +57,9 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ### Added
 - Workspace / Drawing Tool now accepts experiment tags, notes, and reference uploads with mode-aware guidance for Learner/Lab/Builder contexts.
 - Documented the planned 3D visualization data contract and how Workspace artifacts will attach to Experiment provenance.
+- Phase 2 – Wave 2: Import/Provenance wiring refreshed so stub outputs feed Jobs/Datasets with lineage previews before promotion.
+- Control Panel updates show Jobs/Datasets/Method & Data previews to surface audit and dataset provenance in UI tables.
+- Workspace hooks flagged for research-only tagging to keep scratchpad uploads linked to provenance without implying clinical readiness.
 - Phase 2 – Wave 2 UI updates: Jobs table shows linked dataset previews and audit context, and Datasets table surfaces schema/module hints with mode-aware explanations.
 - Method & Data footer now renders ModuleMetadata alongside recent audits with learner/lab/builder-specific messaging.
 - Disabled Run buttons and TODO hooks placed near module and job controls in preparation for execution wiring.
