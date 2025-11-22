@@ -24,6 +24,13 @@ class ExperimentStatus(str, Enum):
     DRAFT = "draft"
     RUNNING = "running"
     COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ExperimentMode(str, Enum):
+    LEARNER = "Learner"
+    LAB = "Lab"
+    BUILDER = "Builder"
 
 
 def _metadata_factory() -> Dict[str, Any]:
@@ -40,7 +47,7 @@ class Experiment:
     id: str
     name: str
     owner: str = "local-user"
-    mode: str = "Lab"
+    mode: str = ExperimentMode.LAB
     status: ExperimentStatus = ExperimentStatus.DRAFT
     metadata: Dict[str, Any] = field(default_factory=_metadata_factory)
     jobs: List[str] = field(default_factory=_job_list_factory)
@@ -49,6 +56,10 @@ class Experiment:
 
     def __post_init__(self) -> None:
         self.id = _validate_id(self.id, "EXP-")
+        if isinstance(self.status, str):
+            self.status = ExperimentStatus(self.status)
+        if isinstance(self.mode, str):
+            self.mode = ExperimentMode(self.mode)
 
     def add_job(self, job_id: str) -> None:
         if job_id in self.jobs:
@@ -64,11 +75,18 @@ class Experiment:
         self.status = ExperimentStatus.COMPLETED
         self.updated_at = _utc_now()
 
+    def mark_failed(self) -> None:
+        self.status = ExperimentStatus.FAILED
+        self.updated_at = _utc_now()
+
     def short_label(self) -> str:
         return f"{self.id} — {self.name}"
 
     def to_dict(self) -> Dict[str, Any]:  # backwards compatibility helper
-        return asdict(self)
+        data = asdict(self)
+        data["status"] = self.status.value
+        data["mode"] = self.mode.value
+        return data
 
     @classmethod
     def example(cls, idx: int = 1, mode: str = "Lab") -> "Experiment":

@@ -39,7 +39,6 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ### Changed
 - `tests/test_module_registry.py` now asserts the Phase 2 metadata entries and provides a lightweight Streamlit stub so registry tests run without UI dependencies.
 
-## [0.2.1] - 2025-11-23
+## [0.2.1] - 2025-11-22
 ### Added
-- Reinforced EI-MS, P-Chem, and Import Wizard stubs with explicit audit/dataset placeholders and educational-only limitations messaging.
-- Updated ModuleRegistry defaults to expose placeholder citations and shared limitations for the scientific module stubs.
+- Workflow helpers for pairing experiments, jobs, datasets, and audit events via `labos/core/workflows.py`.

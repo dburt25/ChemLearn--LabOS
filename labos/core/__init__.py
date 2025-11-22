@@ -14,17 +14,22 @@ They are NOT yet tied to any database or external system.
 from .experiments import Experiment
 from .jobs import Job
 from .datasets import DatasetRef
-from .audit import AuditEvent
+from .audit import AuditEvent, record_event
 from .module_registry import ModuleMetadata, ModuleRegistry
 from .signature import Signature
+from .workflows import attach_dataset_to_job, create_experiment_with_job, log_event_for_job
 
 __all__ = [
     "Experiment",
     "Job",
     "DatasetRef",
     "AuditEvent",
+    "record_event",
     "ModuleMetadata",
     "ModuleRegistry",
     "Signature",
+    "attach_dataset_to_job",
+    "create_experiment_with_job",
+    "log_event_for_job",
 ]
 
