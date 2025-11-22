@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import contextlib
+import sys
+import types
 import unittest
 from types import SimpleNamespace
 from typing import Any, Dict, Mapping, cast
 from unittest import mock
 
+from labos.core.module_registry import ModuleRegistry as MetadataRegistry
 from labos.modules import ModuleDescriptor, ModuleOperation, ModuleRegistry, get_registry
+
+if "streamlit" not in sys.modules:  # Provide a stub so control_panel imports without dependency.
+    sys.modules["streamlit"] = types.ModuleType("streamlit")
+
 from labos.ui import control_panel
 
 
@@ -34,19 +41,45 @@ class ModuleRegistryTests(unittest.TestCase):
 
     def test_builtin_stubs_are_loaded(self) -> None:
         registry = get_registry()
-        descriptor = registry.ensure_module_loaded("eims.fragmentation.stub")
+        descriptor = registry.ensure_module_loaded("eims.fragmentation")
         self.assertIn("compute", descriptor.operations)
+
+
+class ModuleMetadataTests(unittest.TestCase):
+    def test_phase2_metadata_entries_present(self) -> None:
+        registry = MetadataRegistry.with_phase0_defaults()
+        required_keys = ["eims.fragmentation", "pchem.calorimetry", "import.wizard"]
+        for key in required_keys:
+            meta = registry.get(key)
+            self.assertIsNotNone(meta, f"missing metadata for {key}")
+            assert meta is not None  # for mypy
+            self.assertTrue(meta.method_name)
+            self.assertTrue(meta.limitations)
 
 
 class ControlPanelSmokeTest(unittest.TestCase):
     def test_render_control_panel_smoke(self) -> None:
         dummy_runtime = SimpleNamespace(config=SimpleNamespace(), components=SimpleNamespace())
-        session_state: Dict[str, Any] = {
-            "runtime": dummy_runtime,
-            "module_registry": ModuleRegistry(),
-            "current_section": "Overview",
-            "mode": "Learner",
-        }
+        class _SessionState(dict):
+            def __getattr__(self, name: str) -> Any:
+                try:
+                    return self[name]
+                except KeyError as exc:  # pragma: no cover - mimic streamlit behavior
+                    raise AttributeError(name) from exc
+
+            def __setattr__(self, name: str, value: Any) -> None:
+                self[name] = value
+
+            def get(self, key: str, default: Any | None = None) -> Any:
+                return super().get(key, default)
+
+        session_state = _SessionState(
+            runtime=dummy_runtime,
+            module_registry=ModuleRegistry(),
+            method_metadata_registry=MetadataRegistry.with_phase0_defaults(),
+            current_section="Overview",
+            mode="Learner",
+        )
 
         class _StreamlitHarness:
             def __init__(self) -> None:

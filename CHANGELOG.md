@@ -23,3 +23,11 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ### Changed
 - Registries now attach audit event IDs back onto Experiment, Dataset, and Job records for traceability.
 - Compliance docs (checklist, notes, validation log) updated to reflect ModuleRegistry provenance expectations and Phase 1 workflow.
+
+## [0.1.3] - 2025-11-22
+### Added
+- `docs/SWARM_STATUS.md` capturing the Phase 1 documentation review (vision, compliance, provenance) plus outstanding tasks for references, development guide authorship, and future CLI work.
+
+## [0.1.4] - 2025-11-22
+### Added
+- Workspace / Drawing Tool section in the Control Panel with a new `labos/ui/drawing_tool.py` module providing a mode-aware scratchpad and file upload placeholder for future canvas integration.

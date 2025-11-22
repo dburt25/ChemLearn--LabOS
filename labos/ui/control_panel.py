@@ -20,6 +20,7 @@ from labos.experiments import Experiment
 from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
+from labos.ui.drawing_tool import render_drawing_tool
 
 
 MODES = ["Learner", "Lab", "Builder"]
@@ -274,7 +275,15 @@ def _render_sidebar() -> None:
     st.sidebar.title("Navigation")
     section = st.sidebar.radio(
         "Section",
-        ["Overview", "Experiments", "Jobs", "Datasets", "Modules", "Audit Log"],
+        [
+            "Overview",
+            "Experiments",
+            "Jobs",
+            "Datasets",
+            "Modules",
+            "Audit Log",
+            "Workspace",
+        ],
         help="Choose which resource set to inspect. Mode-aware tips adjust automatically.",
     )
     st.session_state.current_section = section
@@ -479,13 +488,33 @@ def _render_datasets(datasets: Sequence[Dataset]) -> None:
                 st.json(ds_obj.to_dict())
 
 
-def _render_modules(registry: ModuleRegistry) -> None:
+def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry) -> None:
     st.subheader("Modules & Operations")
     tip = _mode_tip("modules")
     if tip:
         st.caption(tip)
 
     modules = cast(dict[str, ModuleDescriptor], getattr(registry, "_modules", {}))
+    metadata = {meta.key: meta for meta in metadata_registry.all()}
+
+    if metadata:
+        meta_rows: list[dict[str, object]] = []
+        for meta in sorted(metadata.values(), key=lambda m: m.display_name.lower()):
+            meta_rows.append(
+                {
+                    "Module": meta.display_name,
+                    "Method": meta.method_name,
+                    "Citation": meta.primary_citation,
+                    "Limitations": meta.limitations,
+                }
+            )
+        st.dataframe(meta_rows, use_container_width=True)
+        st.caption("Phase 2 educational stubs — replace citations/limitations with validated data later.")
+    else:
+        st.info("No module metadata registered yet. Extend labos.core.module_registry to populate this table.")
+
+    st.markdown("### Module Inspector")
+    st.caption("TODO: Future waves will add Run buttons that execute these modules and materialize Jobs/Datasets.")
 
     if not modules:
         st.info(
@@ -493,19 +522,12 @@ def _render_modules(registry: ModuleRegistry) -> None:
         )
         return
 
-    summary_rows: list[dict[str, object]] = []
-    for descriptor in modules.values():
-        summary_rows.append(
-            {
-                "Module": descriptor.module_id,
-                "Version": descriptor.version,
-                "Operations": len(descriptor.operations),
-                "Description": descriptor.description or "—",
-            }
+    if not modules:
+        st.info(
+            "No modules registered. Set LABOS_MODULES or call register_descriptor() from your plugin."
         )
-    st.dataframe(summary_rows, use_container_width=True)
+        return
 
-    st.markdown("### Module Inspector")
     module_ids = sorted(modules.keys())
     selected_module = st.selectbox(
         "Select module",
@@ -515,6 +537,11 @@ def _render_modules(registry: ModuleRegistry) -> None:
     descriptor = modules[selected_module]
     st.markdown(f"**{descriptor.module_id}** — v{descriptor.version}")
     st.write(descriptor.description or "No description provided.")
+    meta = metadata.get(descriptor.module_id)
+    if meta:
+        st.markdown(f"_Method:_ {meta.method_name}")
+        st.markdown(f"_Citation:_ {meta.primary_citation}")
+        st.markdown(f"_Limitations:_ {meta.limitations}")
     if descriptor.operations:
         st.markdown("Operations")
         for op in descriptor.operations.values():
@@ -619,8 +646,10 @@ def render_control_panel() -> None:
     elif section == "Datasets":
         _render_datasets(datasets)
     elif section == "Modules":
-        _render_modules(module_registry)
+        _render_modules(module_registry, method_metadata_registry)
     elif section == "Audit Log":
         _render_audit_log(audit_events)
+    elif section == "Workspace":
+        render_drawing_tool(st.session_state.mode)
 
     _render_method_and_data_footer(method_metadata_registry)

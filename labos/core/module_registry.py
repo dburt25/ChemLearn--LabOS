@@ -15,8 +15,8 @@ class ModuleMetadata:
     - Every method/tool has a name, description, citations, and limitations.
     - The UI can show "ⓘ Method & Data" based on this.
 
-    Phase 0:
-    - Simple in-memory registry.
+    Phase 2:
+    - Still an in-memory registry, but enriched with citations/limitations for the UI.
     """
 
     key: str                 # e.g. "pchem.calorimetry"
@@ -58,7 +58,7 @@ class ModuleRegistry:
                 key="pchem.calorimetry",
                 display_name="P-Chem Calorimetry",
                 method_name="Constant-pressure heat capacity estimation",
-                primary_citation="Phase 0 placeholder – insert real thermodynamics reference.",
+                primary_citation="Placeholder – replace with peer-reviewed thermodynamics reference.",
                 dataset_citations=["Phase 0 example dataset only."],
                 limitations="Educational and development only. Not validated for clinical decisions.",
                 reference_url="https://doi.org/10.0000/placeholder-pchem",
@@ -70,9 +70,21 @@ class ModuleRegistry:
                 key="eims.fragmentation",
                 display_name="EI-MS Fragmentation Engine",
                 method_name="Rule-based + ML-augmented EI fragmentation",
-                primary_citation="Phase 0 placeholder – insert ACS-style EI-MS reference.",
+                primary_citation="Placeholder – insert ACS-style EI-MS reference.",
                 dataset_citations=["NIST-like spectral libraries (to be wired later)."],
                 reference_url="https://doi.org/10.0000/placeholder-eims",
+                version="0.1.0",
+            )
+        )
+        registry.register(
+            ModuleMetadata(
+                key="import.wizard",
+                display_name="Import Wizard",
+                method_name="Schema-guided dataset onboarding",
+                primary_citation="Placeholder – cite the data ingestion methodology reference.",
+                dataset_citations=["Internal onboarding datasets (Phase 2 placeholders)."],
+                limitations="Development-only import helper; no real files processed yet.",
+                reference_url="https://doi.org/10.0000/placeholder-import",
                 version="0.1.0",
             )
         )
