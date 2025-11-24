@@ -260,6 +260,24 @@ def show_calorimetry_method_snippet(meta: ModuleMetadata | None, dataset_id: str
     st.caption(f"Method & Data: {method_name} • Output dataset: {dataset_label}")
 
 
+def show_method_summary(meta: ModuleMetadata | None) -> None:
+    module_key = meta.key if meta else "pchem.calorimetry"
+    method_name = meta.method_name if meta else "Calorimetry metadata stub"
+    display_name = meta.display_name if meta else "Calorimetry"
+    detail = (
+        f"Runs {method_name.lower()} to generate educational calorimetry metadata and provenance."
+        if meta
+        else "Generates placeholder calorimetry metadata for walkthroughs."
+    )
+    st.info(
+        f"**Method & Data** — `{module_key}` ({display_name}) runs {method_name}. {detail}"
+    )
+
+
+def show_json_restricted_message(entity: str) -> None:
+    st.caption(f"Switch to Builder mode to view raw {entity} JSON.")
+
+
 def show_calorimetry_raw_data(
     experiment_payload: Mapping[str, object] | None,
     job_payload: Mapping[str, object] | None,
@@ -350,7 +368,10 @@ def _render_create_experiment_form() -> None:
         st.session_state.draft_experiment_id = _generate_experiment_id()
         st.session_state.mode = mode_choice
         st.sidebar.success("Experiment draft captured. Persist it via the CLI or API when ready.")
-        st.sidebar.json(staged)
+        if is_learner():
+            st.sidebar.caption("Switch to Builder mode to view the staged JSON payload.")
+        else:
+            st.sidebar.json(staged)
 
 
 def _load_experiments(runtime: LabOSRuntime) -> list[Experiment]:
@@ -586,6 +607,8 @@ def _render_overview(
 
 def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
     st.subheader("Experiments")
+    if is_learner():
+        show_experiment_explanation()
     _render_section_explainer("Experiments", mode)
     if not experiments:
         st.info("No experiments registered yet.")
@@ -618,11 +641,10 @@ def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
         if selected_exp:
             expanded = _is_builder(mode)
             with st.expander(f"Details — {selected_exp.title}", expanded=expanded):
-                if _is_learner(mode):
-                    st.caption(
-                        "Experiments are JSON documents. Builder mode shows the raw structure; here is the sanitized view."
-                    )
-                st.json(selected_exp.to_dict())
+                if is_learner():
+                    show_json_restricted_message("experiment")
+                else:
+                    st.json(selected_exp.to_dict())
 
 
 def _render_jobs(
@@ -632,6 +654,8 @@ def _render_jobs(
     mode: str,
 ) -> None:
     st.subheader("Jobs")
+    if is_learner():
+        show_job_explanation()
     _render_section_explainer("Jobs", mode)
     if not jobs:
         st.info("No jobs have run yet.")
@@ -693,7 +717,10 @@ def _render_jobs(
             with st.expander(f"Details — {selected_job}", expanded=expanded):
                 if _is_builder(mode):
                     st.caption("Raw job manifest for debugging module contracts and parameters.")
-                st.json(job_obj.to_dict())
+                if is_learner():
+                    show_json_restricted_message("job")
+                else:
+                    st.json(job_obj.to_dict())
                 st.caption("Linked datasets and latest audit signals help trace provenance from jobs to data.")
                 linked_ids = _job_dataset_ids(job_obj)
                 if linked_ids:
@@ -765,8 +792,11 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
                 st.write("Owner:", ds_obj.owner)
                 st.write("Schema/preview:")
                 st.code(_dataset_preview_text(ds_obj))
-                if _is_builder(mode):
-                    st.caption("Full dataset record with IDs and typed fields exposed for ingestion debugging.")
+                if is_learner():
+                    show_json_restricted_message("dataset")
+                else:
+                    if _is_builder(mode):
+                        st.caption("Full dataset record with IDs and typed fields exposed for ingestion debugging.")
                     st.json(ds_obj.to_dict())
 
 def _render_calorimetry_results(
@@ -790,13 +820,21 @@ def _render_calorimetry_results(
         str | None, (experiment_payload or {}).get("id")
     )
 
+    heat_transfer: float | None = None
+    try:
+        if isinstance(delta_t, (int, float)) and isinstance(heat_capacity, (int, float)):
+            heat_transfer = float(heat_capacity) * float(delta_t)
+    except Exception:  # pragma: no cover - defensive conversion guard
+        heat_transfer = None
+
     summary_rows: list[dict[str, object]] = [
         {
             "Experiment": experiment_name or "Pending",
             "Job": job_id or "Pending",
             "Sample": sample_id or "N/A",
-            "Delta T (C)": delta_t if delta_t is not None else "N/A",
-            "Heat Capacity": heat_capacity if heat_capacity is not None else "N/A",
+            "Temperature change (ΔT, °C)": delta_t if delta_t is not None else "N/A",
+            "Heat capacity (c, J/g*C)": heat_capacity if heat_capacity is not None else "N/A",
+            "Heat transferred (q, J)": round(heat_transfer, 3) if heat_transfer is not None else "Stub pending",
             "Dataset": dataset_id or "Pending",
             "Status": (job_payload or {}).get("status", "completed"),
         }
@@ -804,22 +842,19 @@ def _render_calorimetry_results(
 
     st.dataframe(summary_rows, hide_index=True, use_container_width=True)
 
-    if _is_learner(mode):
-        st.info(
-            "Calorimetry results capture experiment, job, and dataset IDs so you can follow the provenance chain."
-            " Parameters are echoed back for easy comparison against expected lab values."
-        )
+    if heat_transfer is not None and is_learner():
+        st.caption("†Heat transfer assumes a 1 g sample for this educational stub.")
 
-    if _is_lab(mode):
+    if is_learner():
+        st.info(
+            "Learner mode summarizes the experiment, job, and dataset IDs so you can trace provenance without"
+            " reading raw JSON."
+        )
+        show_method_summary(meta)
+    elif is_lab():
         show_calorimetry_method_snippet(meta, dataset_id)
     else:
         show_method_metadata(meta)
-
-    if _is_learner(mode):
-        st.markdown(
-            "**Method & Data panel** — ties together the scientific method, its citation, and the output dataset so"
-            " new operators understand what was computed."
-        )
 
     if _is_builder(mode):
         st.markdown("##### Debug views")
@@ -843,10 +878,11 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
             st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
 
     if _is_learner(mode):
-        st.markdown("##### How this workflow is structured")
+        st.markdown("##### How this works")
         show_experiment_explanation()
         show_job_explanation()
         show_module_explanation()
+        st.markdown("##### Calorimetry basics")
         show_calorimetry_equations()
 
     default_name = st.session_state.get("pchem_default_experiment")
@@ -896,6 +932,8 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
 
 def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
     st.subheader("Modules & Operations")
+    if is_learner():
+        show_module_explanation()
     _render_section_explainer("Modules", mode)
     tip = _mode_tip("modules")
     if tip:
@@ -982,7 +1020,15 @@ def _render_audit_log(events: Sequence[dict[str, object]], mode: str) -> None:
     for event in events:
         header = f"{event.get('event_id', 'unknown')} — {event.get('event_type', 'event')}"
         with st.expander(header, expanded=False):
-            st.json(event)
+            if is_learner():
+                st.markdown(
+                    f"**Actor:** {event.get('actor', 'unknown')}  \n"
+                    f"**Action:** {event.get('event_type', event.get('action', 'event'))}  \n"
+                    f"**Target:** {event.get('target', 'N/A')}  \n"
+                    f"**Created:** {event.get('created_at', 'unknown')}"
+                )
+            else:
+                st.json(event)
     if _is_builder(mode):
         st.caption("Builder mode exposes raw audit dictionaries to validate logging schemas.")
 
