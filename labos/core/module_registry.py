@@ -78,8 +78,15 @@ class ModuleRegistry:
     def get_metadata_optional(self, key: str) -> Optional[ModuleMetadata]:
         return self._modules.get(key)
 
+    # Compatibility aliases used by early-phase tests/clients
+    def get(self, key: str) -> Optional[ModuleMetadata]:
+        return self.get_metadata_optional(key)
+
     def list_metadata(self) -> List[ModuleMetadata]:
         return list(self._modules.values())
+
+    def all(self) -> List[ModuleMetadata]:
+        return self.list_metadata()
 
     def list_keys(self) -> List[str]:
         return [meta.key for meta in self.list_metadata()]
