@@ -22,3 +22,4 @@ Document scientific validation activities once numerical or analytical logic shi
 | 2025-11-22T22:05:51Z | Workflow pipeline tests | Added end-to-end calorimetry run_module_job coverage for Experiment/Job/DatasetRef/AuditEvent lineage and WorkflowResult shape regression. | \`python -m unittest tests.test_workflow_pipeline\` |
 
 | 2025-11-23T00:00:00Z | Control Panel UI Tests | Added lightweight mode/helper coverage for mode tips, dataset/job labels, and truncation without requiring Streamlit. | `python -m pytest tests/test_ui_mode_helpers.py` |
+| 2025-11-23T10:00:00Z | Core workflow & module registry | Added calorimetry/EI-MS workflow lineage assertions (Experiment/Job/DatasetRef/AuditEvent) and verified builtin module registry keys. | `python -m unittest tests.test_workflow_jobs_integration tests.test_module_registry` |

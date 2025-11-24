@@ -30,6 +30,12 @@ class AuditEvent:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     details: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not self.id:
+            raise ValueError("AuditEvent id is required")
+        if any(ch.isspace() for ch in self.id):
+            raise ValueError("AuditEvent id cannot include whitespace")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,

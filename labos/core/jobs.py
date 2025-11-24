@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 
 def _utc_now() -> datetime:
@@ -66,6 +66,9 @@ class Job:
             self.datasets_out = list(dict.fromkeys(outputs))
         self.error_message = error
 
+    def is_finished(self) -> bool:
+        return self.status in {JobStatus.COMPLETED, JobStatus.FAILED}
+
     def mark_started(self) -> None:
         """Alias for `start` to align with lifecycle language."""
 
@@ -82,7 +85,12 @@ class Job:
                 self.datasets_in.append(ds)
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        payload["status"] = self.status.value
+        payload["created_at"] = self.created_at.isoformat()
+        payload["started_at"] = self.started_at.isoformat() if self.started_at else None
+        payload["finished_at"] = self.finished_at.isoformat() if self.finished_at else None
+        return payload
 
     @classmethod
     def example(cls, idx: int = 1, experiment_id: str = "EXP-001") -> "Job":
@@ -95,3 +103,7 @@ class Job:
             params={"phase": "Phase 0 skeleton"},
             datasets_in=["DS-001"],
         )
+
+
+def list_jobs_for_experiment(jobs: Sequence[Job], experiment_id: str) -> List[Job]:
+    return [job for job in jobs if job.experiment_id == experiment_id]
