@@ -49,6 +49,16 @@ class ModuleRegistryTests(unittest.TestCase):
         descriptor = registry.ensure_module_loaded("eims.fragmentation")
         self.assertIn("compute", descriptor.operations)
 
+    def test_builtin_registry_lists_expected_keys(self) -> None:
+        registry = get_registry()
+        expected_keys = {"pchem.calorimetry", "eims.fragmentation", "import.wizard"}
+
+        for key in expected_keys:
+            with self.subTest(module_key=key):
+                descriptor = registry.ensure_module_loaded(key)
+                self.assertEqual(descriptor.module_id, key)
+                self.assertIn("compute", descriptor.operations)
+
 
 class ModuleMetadataTests(unittest.TestCase):
     def test_phase2_metadata_entries_present(self) -> None:
