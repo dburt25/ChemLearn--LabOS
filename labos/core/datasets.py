@@ -28,6 +28,12 @@ class DatasetRef:
     path_hint: str | None = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not self.id:
+            raise ValueError("DatasetRef id is required")
+        if any(ch.isspace() for ch in self.id):
+            raise ValueError("DatasetRef id cannot include whitespace")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,

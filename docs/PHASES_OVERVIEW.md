@@ -2,7 +2,7 @@
 
 A staged roadmap describing how ChemLearn LabOS evolves from documentation to a fully operational lab operating system.
 
-## Phase 0 — Bootstrap (Current)
+## Phase 0 — Bootstrap
 - Establish repository structure, governance docs, and data directories.
 - No executable logic beyond placeholders.
 
@@ -10,7 +10,7 @@ A staged roadmap describing how ChemLearn LabOS evolves from documentation to a 
 - Implement experiment/job/dataset registries and provenance utilities.
 - Stand up change/validation logging workflows.
 
-## Phase 2 — Data & Provenance Services
+## Phase 2 — Data & Provenance Services (Current focus)
 - Formalize dataset ingestion, storage tiers, and audit pipelines.
 - Introduce REPL/CLI tooling for orchestrating jobs end-to-end.
 

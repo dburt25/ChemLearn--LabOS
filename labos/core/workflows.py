@@ -11,9 +11,9 @@ from .datasets import DatasetRef
 from .errors import ModuleExecutionError
 from .experiments import Experiment, ExperimentMode, ExperimentStatus
 from .jobs import Job
+from .module_registry import ModuleRegistry, get_default_registry
 from .provenance import link_job_to_dataset, register_import_result
 from labos.modules import ModuleRegistry as OperationRegistry
-from labos.modules import get_registry as get_operation_registry
 from labos.modules.import_wizard.stub import run_import_stub
 
 
@@ -26,6 +26,16 @@ def _utc_now() -> datetime:
 def _prefixed_id(prefix: str) -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
     return f"{prefix}-{timestamp}"
+
+
+def _coerce_registry(
+    registry: ModuleRegistry | OperationRegistry | None,
+) -> ModuleRegistry:
+    if isinstance(registry, ModuleRegistry):
+        return registry
+    if registry is None:
+        return get_default_registry()
+    return ModuleRegistry.with_phase0_defaults(operation_registry=registry)
 
 
 @dataclass(slots=True)
@@ -166,11 +176,11 @@ def run_module_job(
     experiment_mode: ExperimentMode | str = ExperimentMode.LAB,
     datasets_in: Optional[Sequence[str]] = None,
     job_id: Optional[str] = None,
-    module_registry: OperationRegistry | None = None,
+    module_registry: ModuleRegistry | OperationRegistry | None = None,
 ) -> WorkflowResult:
     """Run a registered module operation and capture Experiment/Job lineage."""
 
-    registry = module_registry or get_operation_registry()
+    registry = _coerce_registry(module_registry)
     resolved_params = _normalize_params(params)
     inferred_inputs = _extract_input_dataset_ids(resolved_params)
     all_inputs = list(dict.fromkeys(list(datasets_in or []) + inferred_inputs))
@@ -191,6 +201,10 @@ def run_module_job(
     )
     job.params.setdefault("module_key", module_key)
     job.params.setdefault("operation", operation)
+    module_meta = registry.get_metadata_optional(module_key)
+    if module_meta:
+        job.params.setdefault("module_version", module_meta.version)
+        job.params.setdefault("module_method_name", module_meta.method_name)
 
     experiment_obj.mark_running()
     job.start()
@@ -350,7 +364,7 @@ def log_event_for_job(
         actor=actor,
         action=action,
         target=job.id,
-        created_at=_utc_now().replace(tzinfo=None),
+        created_at=_utc_now(),
         details=payload,
     )
 

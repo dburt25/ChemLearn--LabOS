@@ -33,6 +33,7 @@ from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
+from labos.ui.workspace import render_workspace
 from labos.ui.provenance_footer import render_method_and_data_footer
 
 
@@ -225,6 +226,12 @@ def show_module_explanation() -> None:
         "**Module** — an encapsulated scientific method. Modules publish operations, citations, and limitations so"
         " you understand what computation is being performed."
     )
+
+
+def show_lab_mode_note(short_note: str) -> None:
+    """Concisely remind Lab users what the panel focuses on."""
+
+    st.caption(short_note)
 
 
 def show_calorimetry_equations() -> None:
@@ -483,7 +490,8 @@ def _render_sidebar() -> None:
             "Datasets",
             "Modules",
             "Audit Log",
-            "Workspace / Drawing",
+            "Workspace",
+            "Drawing Tool",
         ],
         help="Choose which resource set to inspect. Mode-aware tips adjust automatically.",
     )
@@ -511,7 +519,7 @@ def _render_overview(
             "Linked dataset previews show which inputs a job expects. Audits summarize the last recorded action."
         )
     elif _is_lab(mode):
-        st.caption("Compact view keeps dataset links and audit timestamps within reach.")
+        show_lab_mode_note("Compact view highlights current counts without extra guidance.")
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Experiments", len(experiments), help="Count of experiment JSON records on disk.")
@@ -643,8 +651,17 @@ def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
             with st.expander(f"Details — {selected_exp.title}", expanded=expanded):
                 if is_learner():
                     show_json_restricted_message("experiment")
+                    st.caption("Switch to Lab for concise fields or Builder for raw JSON.")
+                elif is_lab():
+                    show_lab_mode_note("Lab view keeps experiment details succinct.")
+                    st.markdown(
+                        f"**Owner:** {selected_exp.user_id}  \n"
+                        f"**Status:** {selected_exp.status.value}  \n"
+                        f"**Updated:** {selected_exp.updated_at}"
+                    )
                 else:
-                    st.json(selected_exp.to_dict())
+                    if st.checkbox("Show experiment JSON", key=f"exp_json_{selected_id}"):
+                        st.json(selected_exp.to_dict())
 
 
 def _render_jobs(
@@ -870,11 +887,17 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         st.caption(
             "Learner mode explains each part of the workflow before you run it."
         )
+        show_calorimetry_equations()
+        show_method_summary(meta)
+    elif _is_lab(mode):
+        show_lab_mode_note("Enter only the required fields; detailed equations hide in Learner mode.")
     else:
         st.caption("Creates an experiment + job, calls the PChem calorimetry stub, and emits dataset/audit metadata.")
+        if meta:
+            st.caption(f"Registry method: {meta.method_name}")
 
     if _is_builder(mode):
-        with st.expander("Module metadata (registry)", expanded=False):
+        if st.checkbox("Show calorimetry registry metadata", key="calorimetry_registry"):
             st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
 
     if _is_learner(mode):
@@ -882,8 +905,6 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         show_experiment_explanation()
         show_job_explanation()
         show_module_explanation()
-        st.markdown("##### Calorimetry basics")
-        show_calorimetry_equations()
 
     default_name = st.session_state.get("pchem_default_experiment")
     if not default_name:
@@ -979,9 +1000,20 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
     descriptor = modules[selected_module]
     meta = metadata_map.get(descriptor.module_id)
 
-    st.markdown(f"**{descriptor.module_id}** — v{descriptor.version}")
+    st.markdown(f"**Active module:** `{descriptor.module_id}` (v{descriptor.version})")
+    if meta and is_learner():
+        st.info(
+            f"{meta.display_name}: {meta.method_name}. {_truncate(meta.primary_citation)}"
+        )
+    elif is_lab():
+        show_lab_mode_note(
+            f"{len(descriptor.operations)} operation(s) ready; {_truncate(meta.method_name if meta else 'method metadata pending')}"
+        )
+    elif _is_builder(mode) and meta:
+        st.caption("Registry metadata available below for debugging.")
+
     st.write(descriptor.description or "No description provided.")
-    if meta:
+    if meta and not is_lab():
         st.markdown(f"_Method:_ {meta.method_name}")
         st.markdown(f"_Citation:_ {_truncate(meta.primary_citation)}")
         st.markdown(f"_Limitations:_ {_truncate(meta.limitations)}")
@@ -1002,10 +1034,11 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
 
     if _is_builder(mode):
         st.markdown("#### Debug payloads")
-        st.caption("Raw registry entries help bots and developers validate wiring.")
-        st.json({"module_id": descriptor.module_id, "version": descriptor.version})
-        st.json({"operations": {op.name: op.description for op in descriptor.operations.values()}})
-        if meta:
+        st.caption("Toggle registry entries to validate wiring without cluttering other modes.")
+        if st.checkbox("Show descriptor JSON", key=f"descriptor_json_{descriptor.module_id}"):
+            st.json({"module_id": descriptor.module_id, "version": descriptor.version})
+            st.json({"operations": {op.name: op.description for op in descriptor.operations.values()}})
+        if meta and st.checkbox("Show registry metadata", key=f"metadata_json_{descriptor.module_id}"):
             st.json({"metadata_key": meta.key, "metadata": meta.__dict__})
 
 
@@ -1071,7 +1104,9 @@ def render_control_panel() -> None:
         _render_modules(module_registry, method_metadata_registry, mode)
     elif section == "Audit Log":
         _render_audit_log(audit_events, mode)
-    elif section == "Workspace / Drawing":
+    elif section == "Workspace":
+        render_workspace(experiments, jobs, mode)
+    elif section == "Drawing Tool":
         render_drawing_tool(mode)
 
     render_method_and_data_footer(method_metadata_registry, audit_events, mode)
