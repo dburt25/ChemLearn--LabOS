@@ -79,6 +79,9 @@ class Experiment:
         self.status = ExperimentStatus.FAILED
         self.updated_at = _utc_now()
 
+    def is_finished(self) -> bool:
+        return self.status in {ExperimentStatus.COMPLETED, ExperimentStatus.FAILED}
+
     def short_label(self) -> str:
         return f"{self.id} — {self.name}"
 
@@ -86,6 +89,8 @@ class Experiment:
         data = asdict(self)
         data["status"] = self.status.value
         data["mode"] = self.mode.value
+        data["created_at"] = self.created_at.isoformat()
+        data["updated_at"] = self.updated_at.isoformat()
         return data
 
     @classmethod
