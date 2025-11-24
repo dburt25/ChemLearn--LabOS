@@ -5,6 +5,7 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ## [Unreleased]
 ### Changed
 - Phase 2 – Wave 2: import wizard + provenance helpers now link stub outputs into job/dataset/audit chains.
+- Phase 2.5+: refreshed developer-facing docs (README, Development Guide, swarm status, modularity) to match the current runnable core, CLI, and UI surface.
 
 ## [0.1.0] - 2025-11-22
 ### Added
