@@ -33,6 +33,7 @@ from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
+from labos.ui.workspace import render_workspace
 from labos.ui.provenance_footer import render_method_and_data_footer
 
 
@@ -483,7 +484,8 @@ def _render_sidebar() -> None:
             "Datasets",
             "Modules",
             "Audit Log",
-            "Workspace / Drawing",
+            "Workspace",
+            "Drawing Tool",
         ],
         help="Choose which resource set to inspect. Mode-aware tips adjust automatically.",
     )
@@ -1071,7 +1073,9 @@ def render_control_panel() -> None:
         _render_modules(module_registry, method_metadata_registry, mode)
     elif section == "Audit Log":
         _render_audit_log(audit_events, mode)
-    elif section == "Workspace / Drawing":
+    elif section == "Workspace":
+        render_workspace(experiments, jobs, mode)
+    elif section == "Drawing Tool":
         render_drawing_tool(mode)
 
     render_method_and_data_footer(method_metadata_registry, audit_events, mode)
