@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 try:  # pragma: no cover - import-time guard
     import streamlit as _streamlit  # type: ignore
@@ -19,7 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover - keeps tests runnable without o
 st: Any = cast(Any, _streamlit)
 
 
-def render_drawing_tool(mode: str | None = None, experiment_id: str | None = None) -> None:
+def render_drawing_tool(mode: Optional[str] = None, experiment_id: Optional[str] = None) -> None:
     """Render a lightweight workspace panel with mode-aware guidance.
 
     Design intent: keep the surface agnostic so it can host reaction schemes,
