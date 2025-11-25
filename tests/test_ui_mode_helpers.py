@@ -34,11 +34,11 @@ def test_mode_predicates_respect_session_state(monkeypatch):
     assert control_panel.is_learner() is True
 
 
-def test_internal_mode_flags_exact_match():
-    assert control_panel._is_learner("Learner") is True
-    assert control_panel._is_lab("Lab") is True
-    assert control_panel._is_builder("Builder") is True
-    assert control_panel._is_learner("lab") is False
+def test_mode_flags_exact_match_without_session_state():
+    assert control_panel.is_learner("Learner") is True
+    assert control_panel.is_lab("Lab") is True
+    assert control_panel.is_builder("Builder") is True
+    assert control_panel.is_learner("lab") is False
 
 
 def test_mode_tip_uses_profile_and_fallback(monkeypatch):

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from typing import Any, Mapping
+from uuid import uuid4
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
@@ -23,8 +24,13 @@ def run_calorimetry_stub(params: dict[str, Any] | None = None) -> dict[str, obje
     actor = str(payload.get("actor", "labos.stub"))
     sample_id = str(payload.get("sample_id", "SAMPLE-STUB"))
 
+    sample_tag = sample_id.replace(" ", "-") or "SAMPLE-STUB"
+    run_token = uuid4().hex[:8].upper()
+
+    dataset_id = str(payload.get("dataset_id") or f"DS-PCHEM-{sample_tag}-{run_token}")
+
     dataset = {
-        "id": f"DS-PCHEM-{sample_id}",
+        "id": dataset_id,
         "label": "Calorimetry trace (stub)",
         "kind": "timeseries",
         "path_hint": "data/stubs/pchem_calorimetry.csv",
@@ -33,11 +39,12 @@ def run_calorimetry_stub(params: dict[str, Any] | None = None) -> dict[str, obje
             "delta_t_c": delta_t,
             "heat_capacity": heat_capacity,
             "stub": True,
+            "sample_id": sample_id,
         },
     }
 
     audit = {
-        "id": f"AUD-PCHEM-{sample_id}",
+        "id": str(payload.get("audit_id") or f"AUD-PCHEM-{sample_tag}-{run_token}"),
         "actor": actor,
         "action": "simulate-calorimetry",
         "target": sample_id,
@@ -46,6 +53,7 @@ def run_calorimetry_stub(params: dict[str, Any] | None = None) -> dict[str, obje
             "notes": "No thermodynamics performed; metadata only.",
             "inputs": payload,
             "limitations": "Educational and development only. Not validated for clinical use.",
+            "dataset_id": dataset_id,
         },
     }
 

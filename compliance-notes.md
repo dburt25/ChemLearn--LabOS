@@ -1,5 +1,16 @@
 # Compliance Notes
 
+## Global Forbidden Rules
+- No bot may create, modify, or commit binary files of any kind (.png, .jpg, .pdf, .zip, .db, .exe, .so, .dll, .mp4, or any base64-encoded binary blobs).
+- No bot may introduce new external dependencies.
+
+## Shared Path Access Rules
+- If multiple bots share read access to a path, exactly one bot is allowed to perform write operations in a given wave. Coordinate bot responsibilities before editing to avoid stomp conflicts.
+
+## Module Registration Guardrails
+- Bots modifying modules must not change module import paths or registry keys; keep existing keys stable.
+- Any new key added to `ModuleRegistry` must be lowercase, namespaced (e.g., `pchem.delta_g`), and version-stable so downstream workflows do not break.
+
 ## Current Focus
 - Reinforce provenance capture across module registry entries (method source, dataset lineage, versioned configs).
 - Emphasize DatasetRef + AuditEvent usage to preserve ALCOA-compliant trails for transformations and outputs.
