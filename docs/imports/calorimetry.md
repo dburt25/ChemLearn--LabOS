@@ -8,14 +8,16 @@ in-memory on `pandas.DataFrame` objects or sequences of mapping objects.
 
 | Column | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `time_s` | float | Yes | Elapsed time in seconds. |
-| `temperature_c` | float | Yes | Temperature in degrees Celsius. |
-| `heat_flow_mw` | float | No | Heat flow signal in milliwatts. |
 | `sample_id` | string | No | Sample or experiment identifier. |
-| `run_id` | string | No | Run or injection identifier for grouped traces. |
-| `event_label` | string | No | Optional annotation for events or steps. |
+| `mass_g` | float | Yes | Sample mass in grams. |
+| `specific_heat_j_per_gk` | float | Yes | Specific heat capacity in J/(g*K). |
+| `t_initial_k` | float | Yes | Initial temperature in Kelvin. |
+| `t_final_k` | float | Yes | Final temperature in Kelvin. |
+| `calorimeter_constant_j_per_k` | float | No | Heat capacity term for the instrument. |
+| `solvent_volume_ml` | float | No | Solvent or solution volume in milliliters. |
+| `notes` | string | No | Freeform annotations about the run. |
 
-Synonyms such as `time`, `temp`, `heat_flow`, and `sample` are automatically
+Synonyms such as `mass`, `cp`, `start_temp`, and `sample` are automatically
 resolved, and explicit mappings can override the defaults.
 
 ## Helper usage
@@ -24,8 +26,14 @@ resolved, and explicit mappings can override the defaults.
 from labos.modules.imports import import_calorimetry_table
 
 rows = [
-    {"Time": 0, "Temp": 21.3, "Heat Flow": 1.2, "Sample": "A1"},
-    {"Time": 5, "Temp": 22.0, "Heat Flow": 1.1, "Sample": "A1"},
+    {
+        "Sample": "A1",
+        "Mass (g)": 1.23,
+        "Cp": 4.18,
+        "T initial (K)": 298.15,
+        "T final (K)": 304.2,
+        "Notes": "Calibration run",
+    }
 ]
 
 result = import_calorimetry_table(rows, source="Inline example")
