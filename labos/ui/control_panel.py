@@ -1147,7 +1147,7 @@ def render_control_panel() -> None:
     elif section == "Audit Log":
         _render_audit_log(audit_events, mode)
     elif section == "Workspace":
-        render_workspace(experiments, jobs, mode)
+        render_workspace(experiments, jobs, datasets, mode)
     elif section == "Drawing Tool":
         render_drawing_tool(mode)
 
