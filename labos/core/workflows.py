@@ -24,6 +24,8 @@ def _utc_now() -> datetime:
 
 
 def _prefixed_id(prefix: str) -> str:
+    """Generate a simple, timestamp-based identifier with ``prefix``."""
+
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
     return f"{prefix}-{timestamp}"
 
@@ -31,10 +33,16 @@ def _prefixed_id(prefix: str) -> str:
 def _coerce_registry(
     registry: ModuleRegistry | OperationRegistry | None,
 ) -> ModuleRegistry:
+    """Normalize registry inputs to a metadata-aware ``ModuleRegistry``."""
+
     if isinstance(registry, ModuleRegistry):
         return registry
     if registry is None:
         return get_default_registry()
+    if not isinstance(registry, OperationRegistry):
+        raise TypeError(
+            "module_registry must be a ModuleRegistry, OperationRegistry, or None"
+        )
     return ModuleRegistry.with_phase0_defaults(operation_registry=registry)
 
 
@@ -65,12 +73,16 @@ class WorkflowResult:
 
 
 def _normalize_params(params: Mapping[str, object] | None) -> Dict[str, object]:
+    """Ensure parameters are dict-like with stringified keys."""
+
     if not params:
         return {}
     return {str(key): value for key, value in params.items()}
 
 
 def _extract_input_dataset_ids(params: Mapping[str, object]) -> List[str]:
+    """Extract dataset identifiers from known parameter keys."""
+
     dataset_ids: List[str] = []
     maybe_single = params.get("dataset_id")
     if maybe_single:
@@ -82,6 +94,8 @@ def _extract_input_dataset_ids(params: Mapping[str, object]) -> List[str]:
 
 
 def _build_placeholder_dataset(module_key: str, label: str = "Module output") -> DatasetRef:
+    """Create a placeholder dataset reference for modules that omit one."""
+
     return DatasetRef(
         id=_prefixed_id("DS"),
         label=label,
@@ -122,6 +136,9 @@ def _create_job_record(
     datasets_in: Optional[Sequence[str]] = None,
     job_id: Optional[str] = None,
 ) -> Job:
+    if not module_key:
+        raise ValueError("module_key is required to create a job record")
+
     job = Job(
         id=job_id or _prefixed_id("JOB"),
         experiment_id=experiment.id,

@@ -7,14 +7,18 @@ from typing import Any, Mapping, Sequence
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
 MODULE_KEY = "ei_ms.basic_analysis"
-MODULE_VERSION = "0.1.0"
+MODULE_VERSION = "0.2.0"
 METHOD_METADATA = {
     "method_name": "EI-MS basic heuristic analysis",
     "description": (
         "Rule-based EI-MS helper that tags base peaks, minor peaks, and simple "
         "neutral losses without performing physics-based simulations."
     ),
-    "limitations": "Heuristic only; does not model ionization physics or instrument effects.",
+    "version": MODULE_VERSION,
+    "limitations": (
+        "Heuristic only; deterministic labels without validated predictive power. "
+        "Does not model ionization physics, instrument response, or intensity scaling."
+    ),
     "citations": [],
 }
 
@@ -113,20 +117,31 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
     annotations = payload.get("annotations") or {}
 
     fragments: list[dict[str, Any]] = []
-    base_peak_index = 0
-    if intensities:
-        base_peak_index = max(range(len(intensities)), key=intensities.__getitem__)
+    base_peak_index = 0 if fragment_masses else None
+    if intensities and fragment_masses:
+        base_peak_index = max(range(len(fragment_masses)), key=intensities.__getitem__)
+
+    base_intensity = intensities[base_peak_index] if base_peak_index is not None else 0.0
+    major_threshold = base_intensity * 0.5 if base_intensity > 0 else float("inf")
 
     for idx, mass in enumerate(fragment_masses):
         rel_intensity = intensities[idx] if idx < len(intensities) else 0.0
-        label = "base_peak" if idx == base_peak_index and rel_intensity > 0 else "minor_peak"
+        tags: list[str] = ["candidate_fragment"]
+        classification = "minor_fragment"
+        if base_peak_index is not None and idx == base_peak_index and rel_intensity > 0:
+            tags.append("base_peak")
+            classification = "base_peak"
+        elif rel_intensity >= major_threshold and rel_intensity > 0:
+            tags.append("major_fragment")
+            classification = "major_fragment"
         fragment_annotations = _apply_annotations(mass, annotations)
         neutral_losses = _detect_neutral_losses(precursor_mass, mass)
 
         fragment_entry: dict[str, Any] = {
             "mass": round(mass, 4),
             "relative_intensity": rel_intensity,
-            "classification": label,
+            "classification": classification,
+            "labels": tags,
             "neutral_losses": neutral_losses,
         }
         if fragment_annotations:
@@ -143,6 +158,11 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
             seen_losses.add(loss_mass)
             summary_losses.append(loss)
 
+    base_peak_mass = (
+        round(fragment_masses[base_peak_index], 4) if base_peak_index is not None else None
+    )
+    major_fragment_masses = [frag["mass"] for frag in fragments if "major_fragment" in frag["labels"]]
+
     result = {
         "module_key": MODULE_KEY,
         "status": "ok",
@@ -155,7 +175,8 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
         },
         "fragments": fragments,
         "summary": {
-            "base_peak_mass": round(fragment_masses[base_peak_index], 4) if fragment_masses else None,
+            "base_peak_mass": base_peak_mass,
+            "major_fragment_masses": major_fragment_masses,
             "neutral_losses": summary_losses,
         },
         "message": "Heuristic-only EI-MS tagging; not validated for experimental planning.",

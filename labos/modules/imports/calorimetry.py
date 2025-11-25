@@ -4,6 +4,11 @@ This module keeps the logic in-memory and focuses on small tables passed in as
 lists of mappings or pandas DataFrames. It normalizes user-provided column
 names, validates a lightweight schema, and optionally emits DatasetRef
 metadata for downstream pipeline wiring.
+
+The canonical schema focuses on bulk calorimetry runs (mass, heat capacity,
+and temperature changes). Time-series traces can be layered on later, but the
+schema below captures the minimal energetic inputs needed to compute heat
+transfer in a consistent set of units.
 """
 
 from __future__ import annotations
@@ -16,40 +21,52 @@ from labos.core.datasets import DatasetRef
 
 CALORIMETRY_SCHEMA: list[dict[str, object]] = [
     {
-        "name": "time_s",
-        "type": "float",
-        "required": True,
-        "description": "Elapsed time in seconds for the calorimetry trace",
-    },
-    {
-        "name": "temperature_c",
-        "type": "float",
-        "required": True,
-        "description": "Measured temperature in degrees Celsius",
-    },
-    {
-        "name": "heat_flow_mw",
-        "type": "float",
-        "required": False,
-        "description": "Heat flow signal in milliwatts (optional)",
-    },
-    {
         "name": "sample_id",
         "type": "string",
         "required": False,
         "description": "Identifier for the sample or experiment",
     },
     {
-        "name": "run_id",
-        "type": "string",
-        "required": False,
-        "description": "Run or injection identifier when multiple traces are present",
+        "name": "mass_g",
+        "type": "float",
+        "required": True,
+        "description": "Sample mass in grams",
     },
     {
-        "name": "event_label",
+        "name": "specific_heat_j_per_gk",
+        "type": "float",
+        "required": True,
+        "description": "Specific heat capacity in J/(g*K)",
+    },
+    {
+        "name": "t_initial_k",
+        "type": "float",
+        "required": True,
+        "description": "Initial temperature in Kelvin",
+    },
+    {
+        "name": "t_final_k",
+        "type": "float",
+        "required": True,
+        "description": "Final temperature in Kelvin",
+    },
+    {
+        "name": "calorimeter_constant_j_per_k",
+        "type": "float",
+        "required": False,
+        "description": "Calorimeter heat capacity term in J/K (optional)",
+    },
+    {
+        "name": "solvent_volume_ml",
+        "type": "float",
+        "required": False,
+        "description": "Solvent or solution volume in milliliters (optional)",
+    },
+    {
+        "name": "notes",
         "type": "string",
         "required": False,
-        "description": "Optional annotation for phase changes or dosing events",
+        "description": "Freeform notes about the run or calculation context",
     },
 ]
 
@@ -57,19 +74,32 @@ CALORIMETRY_SCHEMA: list[dict[str, object]] = [
 _SCHEMA_LOOKUP: dict[str, dict[str, object]] = {field["name"]: field for field in CALORIMETRY_SCHEMA}
 
 
-# Normalization helpers: we compare keys case-insensitively and ignore whitespace/underscores
-# so that "Time (s)", "time_s", and "TIME" all map to the canonical "time_s" column.
+# Normalization helpers: compare keys case-insensitively and ignore whitespace/underscores
+# so that "Mass (g)", "mass_g", and "MASS" all map to the canonical "mass_g" column.
 def _normalize_key(name: str) -> str:
     return "".join(ch for ch in name.lower() if ch.isalnum())
 
 
 _SYNONYMS: dict[str, list[str]] = {
-    "time_s": ["time", "t", "elapsed_time", "seconds", "time_seconds"],
-    "temperature_c": ["temp", "temperature", "temp_c", "temperature_c", "t_deg_c"],
-    "heat_flow_mw": ["heat_flow", "heatflow", "power_mw", "heat_flow_mw", "heatflowmw"],
-    "sample_id": ["sample", "sampleid", "sample name", "id"],
-    "run_id": ["run", "runid", "injection", "experiment"],
-    "event_label": ["event", "note", "annotation", "step"],
+    "sample_id": ["sample", "sampleid", "sample name", "id", "identifier"],
+    "mass_g": ["mass", "mass(g)", "mass_in_g", "sample_mass", "weight_g"],
+    "specific_heat_j_per_gk": [
+        "specific_heat",
+        "specificheat",
+        "cp",
+        "heat_capacity",
+        "specific_heat_capacity",
+    ],
+    "t_initial_k": ["t_initial", "initial_temperature", "ti", "start_temp", "t0"],
+    "t_final_k": ["t_final", "final_temperature", "tf", "end_temp", "t1"],
+    "calorimeter_constant_j_per_k": [
+        "calorimeter_constant",
+        "instrument_constant",
+        "cal_constant",
+        "heat_capacity_constant",
+    ],
+    "solvent_volume_ml": ["volume_ml", "solution_volume", "solvent_volume", "vol_ml"],
+    "notes": ["note", "comment", "remarks"],
 }
 
 
@@ -180,9 +210,29 @@ def _prepare_records(table_like: object) -> list[Mapping[str, object]]:
 
 
 def _validate_required_fields(record: Mapping[str, object]) -> None:
-    missing = [name for name, details in _SCHEMA_LOOKUP.items() if details.get("required") and name not in record]
+    missing = [
+        name
+        for name, details in _SCHEMA_LOOKUP.items()
+        if details.get("required") and (name not in record or record[name] is None)
+    ]
     if missing:
-        raise ValueError(f"Missing required calorimetry columns: {', '.join(sorted(missing))}")
+        raise ValueError(
+            "Missing required calorimetry columns: " + ", ".join(sorted(missing))
+        )
+
+
+def _validate_required_headers(resolution: ColumnResolution) -> None:
+    mapped = set(resolution.mapping.values())
+    missing_headers = [
+        name
+        for name, details in _SCHEMA_LOOKUP.items()
+        if details.get("required") and name not in mapped
+    ]
+    if missing_headers:
+        raise ValueError(
+            "Required calorimetry columns not found in input headers: "
+            + ", ".join(sorted(missing_headers))
+        )
 
 
 def _coerce_record_types(record: MutableMapping[str, object]) -> None:
@@ -228,14 +278,20 @@ def import_calorimetry_table(
     records = _prepare_records(table_like)
     resolution = resolve_calorimetry_columns(records[0].keys() if records else [], column_mapping)
 
+    if records:
+        _validate_required_headers(resolution)
+
     normalized_records: list[dict[str, object]] = []
     extras_blocks: list[dict[str, object]] = []
 
-    for record in records:
+    for idx, record in enumerate(records):
         resolved, extras = _apply_mapping(record, resolution.mapping, drop_unknown)
-        _validate_required_fields(resolved)
-        if coerce_types:
-            _coerce_record_types(resolved)
+        try:
+            _validate_required_fields(resolved)
+            if coerce_types:
+                _coerce_record_types(resolved)
+        except ValueError as exc:
+            raise ValueError(f"Row {idx}: {exc}") from exc
         normalized_records.append(resolved)
         if extras:
             extras_blocks.append(extras)
@@ -255,7 +311,7 @@ def import_calorimetry_table(
         dataset_ref = DatasetRef(
             id=f"DS-CAL-{timestamp}",
             label=label or "Calorimetry import",
-            kind="timeseries",
+            kind="tabular",
             path_hint=f"imports/calorimetry/{timestamp}.json",
             metadata={
                 "module_key": MODULE_KEY,
