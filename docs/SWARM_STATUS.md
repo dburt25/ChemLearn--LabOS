@@ -3,6 +3,7 @@ This document summarizes where the bot swarm left LabOS: current phase, shipped 
 
 ## Current Phase
 **Phase:** 2.5 – Working Lab Skeleton (file-backed registries, CLI job runner, educational modules, Streamlit control panel)
+- **Note:** Phase 2.5.1 is ongoing; Bot Wave 2 is experimental and must remain within the permissions matrix until promoted.
 - LabOS core models (Experiment, Job, DatasetRef, AuditEvent, ModuleMetadata) exist with JSON-backed storage and audit hooks.
 - Deterministic EI-MS, P-Chem, and Import Wizard stubs return dataset/audit payloads and register via the ModuleRegistry metadata.
 - Streamlit control panel + workspace shell deliver Learner/Lab/Builder modes with provenance previews and Method & Data footer fed by module metadata and audits.

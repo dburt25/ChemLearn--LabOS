@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Iterator, Sequence, Tuple, Union, cast
+from typing import Any, Iterator, Sequence, Tuple, cast
 
 try:  # pragma: no cover - imported at module import time only
     import streamlit as _streamlit  # type: ignore
@@ -21,7 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - allows tests to run without de
 st: Any = cast(Any, _streamlit)
 
 
-def spaced_columns(spec: Union[Sequence[float], int], *, gap: str = "medium") -> list[Any]:
+def spaced_columns(spec: Sequence[float] | int, *, gap: str = "medium") -> list[Any]:
     """Wrapper around ``st.columns`` with consistent gaps."""
 
     return st.columns(spec, gap=gap)
@@ -52,9 +52,7 @@ def subtle_divider() -> None:
     st.markdown("<hr style='opacity:0.25;margin:0.5rem 0 1.25rem 0;'>", unsafe_allow_html=True)
 
 
-def section_header(
-    title: str, subtitle: Union[str, None] = None, *, icon: Union[str, None] = None
-) -> None:
+def section_header(title: str, subtitle: str | None = None, *, icon: str | None = None) -> None:
     """Render a consistent section heading with optional subtitle."""
 
     heading = f"{icon} {title}" if icon else title
@@ -65,8 +63,8 @@ def section_header(
 
 @contextmanager
 def section_block(
-    title: str, subtitle: Union[str, None] = None, *, icon: Union[str, None] = None
-) -> Iterator[Tuple[str, Union[str, None]]]:
+    title: str, subtitle: str | None = None, *, icon: str | None = None
+) -> Iterator[Tuple[str, str | None]]:
     """Container context that prefixes content with a section header."""
 
     with st.container():
@@ -75,7 +73,7 @@ def section_block(
     st.markdown("")
 
 
-def title_block(title: str, subtitle: Union[str, None] = None) -> None:
+def title_block(title: str, subtitle: str | None = None) -> None:
     """Top-level title with optional supporting caption."""
 
     st.markdown(f"# {title}")

@@ -1,6 +1,11 @@
 # ChemLearn LabOS
 
-ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The repository is now in **Phase 2.5+ (Working Lab Skeleton)**: file-backed registries, a runnable CLI, educational scientific stubs, and the Streamlit control panel are all present, while execution wiring and validation are still being hardened.
+ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The repository is now in **Phase 2.5.1 (Working Lab Skeleton)**: file-backed registries, a runnable CLI, educational scientific stubs, and the Streamlit control panel are all present, while execution wiring and validation are still being hardened.
+
+## What works today
+- Deterministic EI-MS fragmentation, P-Chem calorimetry, and import wizard stubs that register with the module registry and run through the CLI and workflows.
+- JSON-backed experiment/dataset/job registries with workflow helpers that stitch module runs into lineage and audit trails.
+- Learner, Lab, and Builder modes in the Streamlit control panel that surface registries, module metadata, and recent audit context.
 
 ## What ships today
 - **LabOS Core** (`labos/core`, `labos/`): JSON-backed registries for experiments, datasets, and jobs; audit logging; runtime facade; job runner that persists results under `data/jobs/`; and workflow helpers for linking experiments, datasets, and jobs with audit events.
@@ -37,6 +42,7 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
 - Architecture and modules: [`docs/README_ARCHITECTURE.md`](docs/README_ARCHITECTURE.md), [`docs/MODULARITY_GUIDELINES.md`](docs/MODULARITY_GUIDELINES.md)
 - Phase/state snapshots: [`docs/SWARM_STATUS.md`](docs/SWARM_STATUS.md), [`docs/PHASES_OVERVIEW.md`](docs/PHASES_OVERVIEW.md)
+- Swarm governance & permissions: [`docs/SWARM_GOVERNANCE.md`](docs/SWARM_GOVERNANCE.md), [`docs/BOT_PERMISSIONS_MATRIX.md`](docs/BOT_PERMISSIONS_MATRIX.md)
 - Compliance and provenance: [`docs/COMPLIANCE_CHECKLIST.md`](docs/COMPLIANCE_CHECKLIST.md), [`docs/METHOD_AND_DATA.md`](docs/METHOD_AND_DATA.md), [`docs/AUDIT_LOG_FORMAT.md`](docs/AUDIT_LOG_FORMAT.md)
 
 ## Notes
