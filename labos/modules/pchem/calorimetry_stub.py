@@ -75,12 +75,33 @@ def _register() -> None:
     register_descriptor(descriptor)
 
 
-def _method_metadata(name: str, description: str, units: Mapping[str, str], limitations: list[str]) -> dict[str, object]:
+def _method_metadata(
+    method_name: str,
+    description: str,
+    units: Mapping[str, str],
+    limitations: list[str],
+    citations: list[str],
+) -> dict[str, object]:
+    """Normalize method metadata for downstream audit or UI layers."""
+
     return {
-        "name": name,
+        "method_name": method_name,
         "description": description,
         "units": dict(units),
         "limitations": list(limitations),
+        "citations": list(citations),
+    }
+
+
+def _build_dataset_ref(module_key: str, label: str, metadata: Mapping[str, object]) -> dict[str, object]:
+    """Create a DatasetRef-compatible dictionary for computational outputs."""
+
+    normalized_key = module_key.replace(".", "-").upper()
+    return {
+        "id": f"DS-{normalized_key}",
+        "label": label,
+        "kind": "calculation",
+        "metadata": dict(metadata),
     }
 
 
@@ -181,6 +202,7 @@ def run_ideal_gas(params: dict[str, Any] | None = None) -> dict[str, object]:
                 "Solves PV = nRT when exactly one variable is unknown.",
                 {"pressure": "Pa|kPa|atm", "volume": "m^3|L", "temperature": "K|C", "amount": "mol"},
                 ["Ideal gas assumption", "Requires exactly one unknown"],
+                ["Atkins & de Paula, Physical Chemistry, ideal gas law"],
             ),
         }
 
@@ -200,6 +222,7 @@ def run_ideal_gas(params: dict[str, Any] | None = None) -> dict[str, object]:
                 "Solves PV = nRT when exactly one variable is unknown.",
                 {"pressure": "Pa|kPa|atm", "volume": "m^3|L", "temperature": "K|C", "amount": "mol"},
                 ["Ideal gas assumption", "Requires exactly one unknown"],
+                ["Atkins & de Paula, Physical Chemistry, ideal gas law"],
             ),
         }
 
@@ -218,6 +241,7 @@ def run_ideal_gas(params: dict[str, Any] | None = None) -> dict[str, object]:
         "Solves PV = nRT with lightweight unit conversion (Pa/kPa/atm, m^3/L, K/C).",
         {"pressure": pressure_unit, "volume": volume_unit, "temperature": temperature_unit, "amount": "mol"},
         ["Ideal gas assumption", "Single unknown only", "No non-ideal corrections"],
+        ["Atkins & de Paula, Physical Chemistry, ideal gas law"],
     )
 
     return {
@@ -235,6 +259,18 @@ def run_ideal_gas(params: dict[str, Any] | None = None) -> dict[str, object]:
             "temperature": {"value": _temp_from_kelvin(temperature_k, temperature_unit), "unit": temperature_unit},
             "temperature_si": {"value": temperature_k, "unit": "K"},
         },
+        "dataset": _build_dataset_ref(
+            "pchem.ideal_gas",
+            "Ideal gas calculation",
+            {
+                "inputs": payload,
+                "solved_for": solved_for,
+                "pressure_pa": pressure_pa,
+                "volume_m3": volume_m3,
+                "temperature_k": temperature_k,
+                "amount_mol": amount_mol,
+            },
+        ),
         "method": method,
     }
 
@@ -264,6 +300,7 @@ def run_delta_g_from_k(params: dict[str, Any] | None = None) -> dict[str, object
                 "Relates ΔG° and equilibrium constant with ΔG° = -RT ln K.",
                 {"temperature": temperature_unit, "delta_g": "J/mol"},
                 ["Assumes standard state", "K must be positive"],
+                ["Atkins & de Paula, Physical Chemistry, ΔG° = -RT ln K"],
             ),
         }
 
@@ -272,6 +309,7 @@ def run_delta_g_from_k(params: dict[str, Any] | None = None) -> dict[str, object
         "Computes ΔG° from K or vice versa with ΔG° = -RT ln K.",
         {"temperature": temperature_unit, "delta_g": "J/mol", "equilibrium_constant": "dimensionless"},
         ["Assumes standard state", "K>0 when provided", "No activity corrections"],
+        ["Atkins & de Paula, Physical Chemistry, ΔG° = -RT ln K"],
     )
 
     if eq_constant is None and delta_g_value is None:
@@ -308,6 +346,16 @@ def run_delta_g_from_k(params: dict[str, Any] | None = None) -> dict[str, object
             "temperature": {"value": _temp_from_kelvin(temperature_k, temperature_unit), "unit": temperature_unit},
             "temperature_si": {"value": temperature_k, "unit": "K"},
         },
+        "dataset": _build_dataset_ref(
+            "pchem.delta_g_from_k",
+            "ΔG° to K conversion",
+            {
+                "equilibrium_constant": eq_constant,
+                "delta_g_j_per_mol": delta_g_value,
+                "temperature_k": temperature_k,
+                "inputs": payload,
+            },
+        ),
         "method": method,
     }
 
@@ -333,6 +381,7 @@ def run_rate_law_simple(params: dict[str, Any] | None = None) -> dict[str, objec
                 "Computes concentration vs. time for zero- or first-order kinetics.",
                 {"concentration": "mol/L", "rate_constant": "varies", "time": "s"},
                 ["Single-species decay", "Deterministic only"],
+                ["House, Principles of Chemical Kinetics, integrated rate laws"],
             ),
         }
 
@@ -341,6 +390,7 @@ def run_rate_law_simple(params: dict[str, Any] | None = None) -> dict[str, objec
         "Zero- and first-order concentration projection using analytical forms.",
         {"concentration": "mol/L", "rate_constant": "1/s or mol/(L*s)", "time": "s"},
         ["Single-species decay", "No temperature dependence", "Ideal kinetics only"],
+        ["House, Principles of Chemical Kinetics, integrated rate laws"],
     )
 
     if order not in {"zero", "first"}:
@@ -385,6 +435,19 @@ def run_rate_law_simple(params: dict[str, Any] | None = None) -> dict[str, objec
             "time": time,
             "half_life": half_life,
         },
+        "dataset": _build_dataset_ref(
+            "pchem.rate_law_simple",
+            "Simple rate law",
+            {
+                "order": order,
+                "concentration": concentration,
+                "initial_concentration": initial_concentration,
+                "rate_constant": rate_constant,
+                "time": time,
+                "half_life": half_life,
+                "inputs": payload,
+            },
+        ),
         "method": method,
     }
 
@@ -392,7 +455,7 @@ def run_rate_law_simple(params: dict[str, Any] | None = None) -> dict[str, objec
 def _register_ideal_gas() -> None:
     descriptor = ModuleDescriptor(
         module_id="pchem.ideal_gas",
-        version="0.1.0",
+        version="0.2.0",
         description="Ideal gas law solver with lightweight unit conversions.",
     )
     descriptor.register_operation(
@@ -408,7 +471,7 @@ def _register_ideal_gas() -> None:
 def _register_delta_g_from_k() -> None:
     descriptor = ModuleDescriptor(
         module_id="pchem.delta_g_from_k",
-        version="0.1.0",
+        version="0.2.0",
         description="Relates ΔG° and equilibrium constants via ΔG° = -RT ln K.",
     )
     descriptor.register_operation(
@@ -424,7 +487,7 @@ def _register_delta_g_from_k() -> None:
 def _register_rate_law_simple() -> None:
     descriptor = ModuleDescriptor(
         module_id="pchem.rate_law_simple",
-        version="0.1.0",
+        version="0.2.0",
         description="Zero- and first-order integrated rate law evaluator.",
     )
     descriptor.register_operation(
