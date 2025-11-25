@@ -3,6 +3,8 @@
 All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 
 ## [Unreleased]
+### Added
+- Documented the P-Chem and EI-MS stub expansions, workflow helper coverage, mode-aware UI surfaces, and accompanying test posture updates.
 ### Changed
 - Phase 2 – Wave 2: import wizard + provenance helpers now link stub outputs into job/dataset/audit chains.
 - Phase 2.5+: refreshed developer-facing docs (README, Development Guide, swarm status, modularity) to match the current runnable core, CLI, and UI surface.
