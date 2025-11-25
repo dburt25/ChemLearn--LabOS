@@ -22,12 +22,12 @@ result = run_ei_ms_analysis({
 - `annotations` *(mapping, optional)*: User-provided notes keyed by fragment mass.
 
 ### Output
-The function returns a dictionary with:
+The function returns a deterministic dictionary with:
 - `module_key`: `"ei_ms.basic_analysis"`.
-- `method`: Metadata (name, description, limitations).
+- `method`: Metadata (name, description, version, limitations).
 - `inputs`: Echoed, normalized inputs.
-- `fragments`: List of entries containing mass, relative intensity, base peak/minor classification, detected neutral losses, and any matching annotations.
-- `summary`: Base peak mass and unique neutral loss suggestions.
+- `fragments`: List of entries containing mass, relative intensity, classification (`base_peak`, `major_fragment`, or `minor_fragment`), labels (including `candidate_fragment`), detected neutral losses, and any matching annotations.
+- `summary`: Base peak mass, major fragment masses, and unique neutral loss suggestions.
 - `message`: Reminder that the logic is heuristic only.
 
 ## Module Registration
@@ -37,4 +37,4 @@ The module self-registers under the key `ei_ms.basic_analysis` with the operatio
 ## Limitations
 - Neutral loss detection is pattern-based using a small set of common losses.
 - No attempt is made to simulate fragmentation pathways or instrument response.
-- Intended for deterministic demonstrations rather than quantitative analysis.
+- Deterministic heuristic only; not a validated predictor for experimental planning.
