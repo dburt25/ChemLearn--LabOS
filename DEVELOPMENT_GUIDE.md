@@ -1,4 +1,4 @@
-# Development Guide (Phase 2.5+)
+# Development Guide (Phase 2.5.1)
 
 This guide is the on-ramp for contributors working on ChemLearn LabOS while we stabilize the Phase 2.5 working lab skeleton. It summarizes the current layout, day-to-day workflows, and how to extend LabOS safely.
 
@@ -28,7 +28,9 @@ Use the standard library test runner so we avoid optional UI dependencies during
 ```bash
 python -m unittest discover -s tests
 ```
-If you add new tests, keep them headless (Streamlit is optional) and ensure deterministic outputs for stub modules.
+- Run `labos init` first if you need local `data/` scaffolding; most tests operate purely in-memory with temporary paths.
+- Keep tests headless (no Streamlit/browser dependencies) and deterministic so registry/job assertions remain stable.
+- Prefer `python -m unittest tests.test_<area>` while iterating to focus on a single surface.
 
 ## Working with the CLI and runtime
 - Create an experiment:
@@ -49,18 +51,29 @@ If you add new tests, keep them headless (Streamlit is optional) and ensure dete
   ```
 
 ## Adding a module
-1. Create a new package under `labos/modules/<domain>/` and implement pure, deterministic functions (educational-safe by default).
-2. Define a `ModuleDescriptor` and one or more `ModuleOperation`s in the module, then register it via `register_descriptor()` so `labos.modules.get_registry()` can find it.
-3. Expose a concise `module_id` and `operation` name (e.g., `compute`) that the CLI and UI can invoke.
-4. Update provenance/metadata if needed:
-   - Add method metadata in `labos/core/module_registry.py` so the Method & Data footer shows citations/limitations.
-   - Document limitations in `docs/METHOD_AND_DATA.md` and, if applicable, update compliance notes.
+1. Create a new package under `labos/modules/<domain>/` with a `stub.py` (or similar) that exposes pure, deterministic functions—default to educational-safe behavior and avoid side effects.
+2. Construct a `ModuleDescriptor` with a stable `module_id`, semantic-ish `version`, and human-readable `description`.
+3. For each callable surface, create a `ModuleOperation` (e.g., `compute`) pointing at the handler function, then call `descriptor.register_operation()` to attach it.
+4. Call `labos.modules.register_descriptor(descriptor)` at import time so `get_registry()` discovers it automatically (the CLI, runtime, and workflows rely on this registry).
 5. Keep outputs JSON-serializable; the job runner writes results to timestamped files for traceability.
+6. Add or update metadata:
+   - Populate method metadata in `labos/core/module_registry.py` so the Method & Data footer shows citations/limitations.
+   - Document limitations in `docs/METHOD_AND_DATA.md` and, if applicable, update compliance notes.
+
+## Registering a module with the registry
+- **Built-ins:** Place the descriptor in a module under `labos/modules/**` and register it when the module imports; `labos.modules.get_registry()` will import built-in stub paths automatically.
+- **Plugins:** Export the descriptor from an external package and set `LABOS_MODULES="your.module.path"` (comma-separated) so `ModuleRegistry.auto_discover()` imports and registers it at startup.
+- **Validation:** Confirm the registry entry by running `labos list-modules` (CLI) or invoking `labos run-module --module-id <id> --operation compute` with demo params.
 
 ## Wiring a job or workflow
 - The `LabOSRuntime` in `labos/runtime.py` wires together configuration, audit logging, registries, and the `JobRunner`.
 - `JobRunner.run()` records a job, executes a registered module operation, persists the result JSON under `data/jobs/`, and writes audit events. Use it directly or via the CLI `run-module` command.
 - For more complex flows, use the helpers in `labos/core/workflows.py` to create experiments, attach datasets, and link audit events without bypassing the registries.
+
+## How workflows and modes fit together
+- **Workflows:** `labos/core/workflows.py` provides orchestration helpers that create an Experiment (or reuse one), run a registered module operation via the registry, emit audit events, and persist Job/Dataset lineage. Use these helpers when composing multi-step flows so experiments, jobs, datasets, and audits stay linked.
+- **Runtime & CLI:** `LabOSRuntime` and `labos run-module` are thin facades over the same registries and job runner; they share the module registry used by workflows.
+- **Modes:** Experiments carry a mode (`Learner`, `Lab`, `Builder`) that influences UI copy and guardrails. The Streamlit control panel reads the same registries and shows mode-aware messaging, but the data model and workflow helpers remain consistent across modes.
 
 ## Documentation & compliance expectations
 - Every change should update `CHANGELOG.md` and, when tests run, append evidence to `VALIDATION_LOG.md`.
