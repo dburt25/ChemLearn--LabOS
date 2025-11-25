@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from uuid import uuid4
 
 from .audit import AuditEvent
 from .datasets import DatasetRef
@@ -396,7 +397,11 @@ def _dataset_from_dict(payload: Mapping[str, object], module_key: str | None = N
     else:
         parsed = _utc_now()
 
-    dataset_id = str(payload.get("id") or _prefixed_id("DS"))
+    payload_id = payload.get("id")
+    if payload_id:
+        dataset_id = str(payload_id)
+    else:
+        dataset_id = f"DS-{uuid4()}"
     return DatasetRef(
         id=dataset_id,
         label=str(payload.get("label", dataset_id)),
