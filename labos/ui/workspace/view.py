@@ -109,7 +109,10 @@ def _render_job(job: Job, *, builder: bool) -> None:
 
     row = st.columns([2, 1, 1.2, 3])
     row[0].markdown(f"**{job.module_id}** · `{job.operation}`")
-    row[1].markdown(f"<span style='color:{color};font-weight:600'>{status_label}</span>", unsafe_allow_html=True)
+    row[1].markdown(
+        f"<span style='color:{color};font-weight:600'>{status_label}</span>",
+        unsafe_allow_html=True,
+    )
     row[2].markdown(f"`{timestamp}`")
     row[3].markdown(_job_description(job))
 
@@ -129,6 +132,24 @@ def _render_experiment_header(experiment: Experiment) -> None:
     st.caption(f"Created: {created} • Updated: {updated} • Owner: {experiment.user_id}")
 
 
+def _render_experiment_block(experiment: Experiment, jobs: Sequence[Job], *, builder: bool) -> None:
+    with st.container():
+        _render_experiment_header(experiment)
+        exp_jobs = sorted(
+            jobs,
+            key=lambda job: getattr(job, "updated_at", ""),
+            reverse=True,
+        )
+        if not exp_jobs:
+            st.info("No jobs linked to this experiment yet.")
+        else:
+            for job in exp_jobs:
+                _render_job(job, builder=builder)
+        if builder:
+            with st.expander("Inspect experiment JSON", expanded=False):
+                st.json(experiment.to_dict())
+
+
 def render_workspace(experiments: Sequence[Experiment], jobs: Sequence[Job], mode: str) -> None:
     """Render workspace area with experiments and job history."""
 
@@ -136,6 +157,15 @@ def render_workspace(experiments: Sequence[Experiment], jobs: Sequence[Job], mod
 
     st.subheader("Workspace")
     st.caption("Review experiments alongside their recorded jobs and statuses.")
+
+    col1, col2, col3 = st.columns([1, 1, 1.5])
+    col1.metric("Experiments", len(experiments))
+    col2.metric("Jobs", len(jobs))
+    latest_timestamp = None
+    for job in sorted(jobs, key=lambda j: getattr(j, "updated_at", ""), reverse=True):
+        latest_timestamp = _job_timestamp(job)
+        break
+    col3.metric("Latest job update", latest_timestamp or "—")
 
     if not experiments:
         st.info("No experiments recorded yet. Run a workflow to see experiments and jobs appear here.")
@@ -152,21 +182,15 @@ def render_workspace(experiments: Sequence[Experiment], jobs: Sequence[Job], mod
     for job in jobs:
         jobs_by_experiment.setdefault(job.experiment_id, []).append(job)
 
+    orphan_jobs = [job for job in jobs if job.experiment_id not in jobs_by_experiment]
+
     for exp in sorted_experiments:
-        with st.container():
-            _render_experiment_header(exp)
-            exp_jobs = sorted(
-                jobs_by_experiment.get(exp.record_id, []),
-                key=lambda job: getattr(job, "updated_at", ""),
-                reverse=True,
-            )
-            if not exp_jobs:
-                st.info("No jobs linked to this experiment yet.")
-            else:
-                for job in exp_jobs:
-                    _render_job(job, builder=builder)
-            if builder:
-                with st.expander("Inspect experiment JSON", expanded=False):
-                    st.json(exp.to_dict())
+        _render_experiment_block(exp, jobs_by_experiment.get(exp.record_id, []), builder=builder)
+
+    if orphan_jobs:
+        st.markdown("#### Jobs without an experiment link")
+        st.caption("These jobs reference missing or deleted experiments.")
+        for job in orphan_jobs:
+            _render_job(job, builder=builder)
 
     st.caption("Statuses update after workflows run; refresh the page to pick up newly written manifests.")
