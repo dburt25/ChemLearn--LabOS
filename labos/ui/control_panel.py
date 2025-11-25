@@ -209,22 +209,21 @@ def _dataset_preview_text(dataset: Dataset) -> str:
 
 def show_experiment_explanation() -> None:
     st.info(
-        "**Experiment** — the umbrella for related jobs and datasets. It records the study's goal, owner, and status"
-        " so you can trace every run back to its intent."
+        "**Experiment** — names the study goal and owner so every job and dataset rolls up to a single story."
     )
 
 
 def show_job_explanation() -> None:
     st.info(
-        "**Job** — a single execution of a module with parameters and linked datasets. Jobs report status so learners"
-        " can see when work started, succeeded, or failed."
+        "**Job** — one execution attempt inside an experiment. It calls a module with parameters, links datasets,"
+        " and logs status changes."
     )
 
 
 def show_module_explanation() -> None:
     st.info(
-        "**Module** — an encapsulated scientific method. Modules publish operations, citations, and limitations so"
-        " you understand what computation is being performed."
+        "**Module** — a reusable scientific method that jobs invoke. Descriptors list operations plus citations and"
+        " limitations so you know what the computation does."
     )
 
 
@@ -235,18 +234,23 @@ def show_lab_mode_note(short_note: str) -> None:
 
 
 def show_calorimetry_equations() -> None:
-    st.markdown(
-        """
-        **Calorimetry refresher**
+    with st.expander("Calorimetry basics (q, m, c, ΔT)", expanded=True):
+        st.info(
+            "Heat flow is estimated with **q = m · c · ΔT**, where *q* is heat, *m* is sample mass, *c* is specific"
+            " heat capacity, and *ΔT* is the observed temperature change."
+        )
+        st.info(
+            "Learner runs multiply your entered *c* and *ΔT* (assuming 1 g) so you can see how heat changes map to"
+            " experiment, job, and dataset records."
+        )
 
-        - Heat transfer: **q = m · c · ΔT**
-        - Temperature change: **ΔT = T_final – T_initial**
-        - Variables: *q* (heat), *m* (mass of sample), *c* (specific heat capacity), *ΔT* (observed temperature shift).
 
-        The calorimetry module estimates heat exchanged for a sample using these relationships and records the run as a
-        reproducible job with linked dataset and audit trail.
-        """
-    )
+def show_ei_ms_explanation() -> None:
+    with st.expander("EI-MS refresher", expanded=False):
+        st.info(
+            "Electron ionization mass spectrometry breaks molecules into fragments and plots their intensities against"
+            " mass-to-charge (m/z). The resulting spectrum is the pattern of peaks you read to spot likely compounds."
+        )
 
 
 def show_method_metadata(meta: ModuleMetadata | None) -> None:
@@ -955,6 +959,7 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
     st.subheader("Modules & Operations")
     if is_learner():
         show_module_explanation()
+        show_ei_ms_explanation()
     _render_section_explainer("Modules", mode)
     tip = _mode_tip("modules")
     if tip:
