@@ -25,6 +25,7 @@ from .workflows import (
     log_event_for_job,
     run_module_job,
 )
+from . import telemetry
 
 __all__ = [
     "Experiment",
@@ -41,5 +42,6 @@ __all__ = [
     "create_experiment_with_job",
     "log_event_for_job",
     "run_module_job",
+    "telemetry",
 ]
 
