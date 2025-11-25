@@ -1046,51 +1046,54 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
             options=module_ids,
             help="Review descriptor details before wiring jobs or experiments to it.",
         )
-    elif is_lab():
-        show_lab_mode_note(
-            f"{len(descriptor.operations)} operation(s) ready; {_truncate(meta.method_name if meta else 'method metadata pending')}"
-        )
-    elif is_builder() and meta:
-        st.caption("Registry metadata available below for debugging.")
+        if selected_module:
+            descriptor = modules[selected_module]
+            meta = metadata_map.get(selected_module)
+            if is_lab():
+                show_lab_mode_note(
+                    f"{len(descriptor.operations)} operation(s) ready; {_truncate(meta.method_name if meta else 'method metadata pending')}"
+                )
+            elif is_builder() and meta:
+                st.caption("Registry metadata available below for debugging.")
 
-    st.write(descriptor.description or "No description provided.")
-    if meta and not is_lab():
-        st.markdown(f"_Method:_ {meta.method_name}")
-        st.markdown(f"_Citation:_ {_truncate(meta.primary_citation)}")
-        st.markdown(f"_Limitations:_ {_truncate(meta.limitations)}")
-    if descriptor.operations:
-        st.markdown("Operations")
-        for op in descriptor.operations.values():
-            st.markdown(f"- `{op.name}` — {op.description}")
-        st.button(
-            "Run (coming soon)",
-            disabled=True,
-            help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
-        )
-    else:
-        st.write("_No operations registered._")
+            st.write(descriptor.description or "No description provided.")
+            if meta and not is_lab():
+                st.markdown(f"_Method:_ {meta.method_name}")
+                st.markdown(f"_Citation:_ {_truncate(meta.primary_citation)}")
+                st.markdown(f"_Limitations:_ {_truncate(meta.limitations)}")
+            if descriptor.operations:
+                st.markdown("Operations")
+                for op in descriptor.operations.values():
+                    st.markdown(f"- `{op.name}` — {op.description}")
+                st.button(
+                    "Run (coming soon)",
+                    disabled=True,
+                    help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
+                )
+            else:
+                st.write("_No operations registered._")
 
-        if descriptor.module_id == "pchem.calorimetry":
-            _render_pchem_calorimetry_runner(metadata_registry, mode)
+            if descriptor.module_id == "pchem.calorimetry":
+                _render_pchem_calorimetry_runner(metadata_registry, mode)
 
-    if is_builder():
-        st.markdown("#### Debug payloads")
-        st.caption("Toggle registry entries to validate wiring without cluttering other modes.")
-        render_debug_toggle(
-            "Show descriptor JSON",
-            key=f"descriptor_json_{descriptor.module_id}",
-            payload={
-                "module_id": descriptor.module_id,
-                "version": descriptor.version,
-                "operations": {op.name: op.description for op in descriptor.operations.values()},
-            },
-        )
-        if meta:
-            render_debug_toggle(
-                "Show registry metadata",
-                key=f"metadata_json_{descriptor.module_id}",
-                payload={"metadata_key": meta.key, "metadata": meta.__dict__},
-            )
+            if is_builder():
+                st.markdown("#### Debug payloads")
+                st.caption("Toggle registry entries to validate wiring without cluttering other modes.")
+                render_debug_toggle(
+                    "Show descriptor JSON",
+                    key=f"descriptor_json_{descriptor.module_id}",
+                    payload={
+                        "module_id": descriptor.module_id,
+                        "version": descriptor.version,
+                        "operations": {op.name: op.description for op in descriptor.operations.values()},
+                    },
+                )
+                if meta:
+                    render_debug_toggle(
+                        "Show registry metadata",
+                        key=f"metadata_json_{descriptor.module_id}",
+                        payload={"metadata_key": meta.key, "metadata": meta.__dict__},
+                    )
 
 
 def _render_audit_log(events: Sequence[dict[str, object]], mode: str) -> None:
