@@ -162,7 +162,7 @@ def _render_mode_banner(
     callout(message)
     what_is_this = profile.get("what_is_this")
     if what_is_this:
-        expanded = _is_learner(st.session_state.mode)
+        expanded = is_learner()
         with st.expander("What is this mode?", expanded=expanded):
             st.markdown(str(what_is_this))
 
@@ -185,9 +185,18 @@ def _render_section_explainer(section: str, mode: str) -> None:
         ),
     }
 
-    if _is_learner(mode) and section in learner_notes:
+    if is_learner() and section in learner_notes:
         with st.expander("What is this?", expanded=True):
             st.info(learner_notes[section])
+
+
+def render_mode_explanation(title: str, learner_note: str, lab_note: str | None = None) -> None:
+    """Standardized contextual explanation that adapts to the active mode."""
+
+    if is_learner():
+        st.info(f"**{title}** — {learner_note}")
+    elif is_lab() and lab_note:
+        show_lab_mode_note(lab_note)
 
 
 def _dataset_label(dataset: Dataset) -> str:
@@ -209,22 +218,21 @@ def _dataset_preview_text(dataset: Dataset) -> str:
 
 def show_experiment_explanation() -> None:
     st.info(
-        "**Experiment** — the umbrella for related jobs and datasets. It records the study's goal, owner, and status"
-        " so you can trace every run back to its intent."
+        "**Experiment** — names the study goal and owner so every job and dataset rolls up to a single story."
     )
 
 
 def show_job_explanation() -> None:
     st.info(
-        "**Job** — a single execution of a module with parameters and linked datasets. Jobs report status so learners"
-        " can see when work started, succeeded, or failed."
+        "**Job** — one execution attempt inside an experiment. It calls a module with parameters, links datasets,"
+        " and logs status changes."
     )
 
 
 def show_module_explanation() -> None:
     st.info(
-        "**Module** — an encapsulated scientific method. Modules publish operations, citations, and limitations so"
-        " you understand what computation is being performed."
+        "**Module** — a reusable scientific method that jobs invoke. Descriptors list operations plus citations and"
+        " limitations so you know what the computation does."
     )
 
 
@@ -235,18 +243,23 @@ def show_lab_mode_note(short_note: str) -> None:
 
 
 def show_calorimetry_equations() -> None:
-    st.markdown(
-        """
-        **Calorimetry refresher**
+    with st.expander("Calorimetry basics (q, m, c, ΔT)", expanded=True):
+        st.info(
+            "Heat flow is estimated with **q = m · c · ΔT**, where *q* is heat, *m* is sample mass, *c* is specific"
+            " heat capacity, and *ΔT* is the observed temperature change."
+        )
+        st.info(
+            "Learner runs multiply your entered *c* and *ΔT* (assuming 1 g) so you can see how heat changes map to"
+            " experiment, job, and dataset records."
+        )
 
-        - Heat transfer: **q = m · c · ΔT**
-        - Temperature change: **ΔT = T_final – T_initial**
-        - Variables: *q* (heat), *m* (mass of sample), *c* (specific heat capacity), *ΔT* (observed temperature shift).
 
-        The calorimetry module estimates heat exchanged for a sample using these relationships and records the run as a
-        reproducible job with linked dataset and audit trail.
-        """
-    )
+def show_ei_ms_explanation() -> None:
+    with st.expander("EI-MS refresher", expanded=False):
+        st.info(
+            "Electron ionization mass spectrometry breaks molecules into fragments and plots their intensities against"
+            " mass-to-charge (m/z). The resulting spectrum is the pattern of peaks you read to spot likely compounds."
+        )
 
 
 def show_method_metadata(meta: ModuleMetadata | None) -> None:
@@ -279,6 +292,27 @@ def show_method_summary(meta: ModuleMetadata | None) -> None:
     st.info(
         f"**Method & Data** — `{module_key}` ({display_name}) runs {method_name}. {detail}"
     )
+
+
+def render_method_and_data_panel(meta: ModuleMetadata | None, dataset_id: str | None) -> None:
+    """Shared Method & Data rendering adjusted for the active mode."""
+
+    if is_learner():
+        show_method_summary(meta)
+    elif is_lab():
+        show_calorimetry_method_snippet(meta, dataset_id)
+    else:
+        show_method_metadata(meta)
+
+
+def render_debug_toggle(label: str, key: str, payload: Mapping[str, object] | Sequence[Mapping[str, object]] | None) -> None:
+    """Consistent checkbox + JSON renderer for Builder mode."""
+
+    if st.checkbox(label, key=key):
+        if isinstance(payload, Mapping):
+            st.json(payload)
+        else:
+            st.json(list(payload or []))
 
 
 def show_json_restricted_message(entity: str) -> None:
@@ -514,11 +548,11 @@ def _render_overview(
     tip = _mode_tip("overview")
     if tip:
         st.caption(tip)
-    if _is_learner(mode):
+    if is_learner():
         st.info(
             "Linked dataset previews show which inputs a job expects. Audits summarize the last recorded action."
         )
-    elif _is_lab(mode):
+    elif is_lab():
         show_lab_mode_note("Compact view highlights current counts without extra guidance.")
 
     col1, col2, col3 = st.columns(3)
@@ -541,9 +575,9 @@ def _render_overview(
                 for exp in experiments[:5]
             ]
             st.dataframe(exp_rows, use_container_width=True)
-            if _is_lab(mode):
+            if is_lab():
                 st.caption("Lab view keeps the latest five experiments within reach.")
-            elif _is_learner(mode):
+            elif is_learner():
                 st.caption("Showing the five most recent experiments so you can orient to current work.")
             else:
                 st.caption("Builder view trims the sample but exposes full details below.")
@@ -563,9 +597,9 @@ def _render_overview(
                     }
                 )
             st.dataframe(module_rows, use_container_width=True)
-            if _is_learner(mode):
+            if is_learner():
                 st.caption("Module Registry previews which scientific tools are wired. Use Modules page for guidance.")
-            elif _is_lab(mode):
+            elif is_lab():
                 st.caption("Quick check: confirm the operation count before launching jobs.")
             else:
                 st.caption("Builder tip: use the Modules section to compare descriptors vs. metadata registry.")
@@ -603,11 +637,11 @@ def _render_overview(
         else:
             st.info("No datasets registered yet.")
 
-    if _is_builder(mode):
+    if is_builder():
         st.info(
             "Builder mode exposes quick registry stats for debugging. IDs and raw dictionaries appear in each section."
         )
-    elif _is_learner(mode):
+    elif is_learner():
         st.success(
             "Everything you see here is intentionally read-friendly. Switch sections to learn how LabOS tracks science."
         )
@@ -647,7 +681,7 @@ def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
     if selected_id:
         selected_exp = next((exp for exp in experiments if exp.record_id == selected_id), None)
         if selected_exp:
-            expanded = _is_builder(mode)
+            expanded = is_builder()
             with st.expander(f"Details — {selected_exp.title}", expanded=expanded):
                 if is_learner():
                     show_json_restricted_message("experiment")
@@ -681,11 +715,11 @@ def _render_jobs(
     tip = _mode_tip("jobs")
     if tip:
         st.caption(tip)
-    if _is_learner(mode):
+    if is_learner():
         st.info(
             "Linked dataset previews show which inputs a job expects. Audits summarize the last recorded action."
         )
-    elif _is_lab(mode):
+    elif is_lab():
         st.caption("Compact view keeps dataset links and audit timestamps within reach.")
 
     dataset_map = {ds.record_id: ds for ds in datasets}
@@ -730,14 +764,24 @@ def _render_jobs(
         job_map = {job.record_id: job for job in jobs}
         job_obj = job_map.get(selected_job)
         if job_obj:
-            expanded = _is_builder(mode)
+            expanded = is_builder()
             with st.expander(f"Details — {selected_job}", expanded=expanded):
-                if _is_builder(mode):
+                render_mode_explanation(
+                    "Job manifest",
+                    "Learner mode keeps JSON hidden while highlighting provenance links and statuses.",
+                    "Lab mode surfaces a concise manifest summary; Builder exposes raw payloads.",
+                )
+                st.markdown(
+                    f"- **Status:** {job_obj.status.value} | **Module:** {job_obj.module_id} | **Operation:** {job_obj.operation}"
+                )
+                if is_builder():
                     st.caption("Raw job manifest for debugging module contracts and parameters.")
-                if is_learner():
+                    render_debug_toggle("Show job JSON", f"job_json_{selected_job}", job_obj.to_dict())
+                elif is_learner():
                     show_json_restricted_message("job")
                 else:
-                    st.json(job_obj.to_dict())
+                    show_lab_mode_note("JSON hidden here to keep the summary focused; open Builder for payloads.")
+
                 st.caption("Linked datasets and latest audit signals help trace provenance from jobs to data.")
                 linked_ids = _job_dataset_ids(job_obj)
                 if linked_ids:
@@ -772,7 +816,7 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
     if tip:
         st.caption(tip)
 
-    if _is_learner(mode):
+    if is_learner():
         st.info(
             "This preview shows the imported dataset structure and recent actions so learners can trace provenance before running analyses."
         )
@@ -798,7 +842,12 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
         dataset_map = {ds.record_id: ds for ds in datasets}
         ds_obj = dataset_map.get(selected_dataset)
         if ds_obj:
-            with st.expander(f"Details — {selected_dataset}", expanded=_is_builder(mode)):
+            with st.expander(f"Details — {selected_dataset}", expanded=is_builder()):
+                render_mode_explanation(
+                    "Dataset record",
+                    "Learner mode focuses on labels, kinds, and provenance without raw JSON.",
+                    "Lab mode keeps metadata concise; Builder exposes the full record.",
+                )
                 st.markdown(
                     f"**Label:** {_dataset_label(ds_obj)} | **Kind:** {_dataset_kind(ds_obj)}"
                 )
@@ -812,9 +861,11 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
                 if is_learner():
                     show_json_restricted_message("dataset")
                 else:
-                    if _is_builder(mode):
+                    if is_builder():
                         st.caption("Full dataset record with IDs and typed fields exposed for ingestion debugging.")
-                    st.json(ds_obj.to_dict())
+                        render_debug_toggle("Show dataset JSON", f"dataset_json_{selected_dataset}", ds_obj.to_dict())
+                    else:
+                        show_lab_mode_note("Dataset JSON available in Builder mode to reduce visual clutter here.")
 
 def _render_calorimetry_results(
     payload: Mapping[str, object], meta: ModuleMetadata | None, mode: str
@@ -862,18 +913,15 @@ def _render_calorimetry_results(
     if heat_transfer is not None and is_learner():
         st.caption("†Heat transfer assumes a 1 g sample for this educational stub.")
 
-    if is_learner():
-        st.info(
-            "Learner mode summarizes the experiment, job, and dataset IDs so you can trace provenance without"
-            " reading raw JSON."
-        )
-        show_method_summary(meta)
-    elif is_lab():
-        show_calorimetry_method_snippet(meta, dataset_id)
-    else:
-        show_method_metadata(meta)
+    render_mode_explanation(
+        "Experiment & Job summary",
+        "Learner mode highlights IDs and provenance context first, keeping JSON optional.",
+        "Concise, operator-focused summary; detailed JSON stays tucked away.",
+    )
 
-    if _is_builder(mode):
+    render_method_and_data_panel(meta, dataset_id)
+
+    if is_builder():
         st.markdown("##### Debug views")
         st.caption("Toggle JSON payloads to debug registry wiring and workflow results.")
         show_calorimetry_raw_data(experiment_payload, job_payload, dataset_payload, audit_payload, meta)
@@ -883,24 +931,24 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
     meta = meta_registry.get("pchem.calorimetry")
 
     st.markdown("#### Run Calorimetry Workflow (beta)")
-    if _is_learner(mode):
+    if is_learner():
         st.caption(
             "Learner mode explains each part of the workflow before you run it."
         )
         show_calorimetry_equations()
         show_method_summary(meta)
-    elif _is_lab(mode):
+    elif is_lab():
         show_lab_mode_note("Enter only the required fields; detailed equations hide in Learner mode.")
     else:
         st.caption("Creates an experiment + job, calls the PChem calorimetry stub, and emits dataset/audit metadata.")
         if meta:
             st.caption(f"Registry method: {meta.method_name}")
 
-    if _is_builder(mode):
+    if is_builder():
         if st.checkbox("Show calorimetry registry metadata", key="calorimetry_registry"):
             st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
 
-    if _is_learner(mode):
+    if is_learner():
         st.markdown("##### How this works")
         show_experiment_explanation()
         show_job_explanation()
@@ -955,6 +1003,7 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
     st.subheader("Modules & Operations")
     if is_learner():
         show_module_explanation()
+        show_ei_ms_explanation()
     _render_section_explainer("Modules", mode)
     tip = _mode_tip("modules")
     if tip:
@@ -978,9 +1027,9 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
                 }
             )
         st.dataframe(summary_rows, use_container_width=True, hide_index=True)
-        if _is_lab(mode):
+        if is_lab():
             st.caption("Compact registry view for quick verification before launching jobs.")
-        elif _is_learner(mode):
+        elif is_learner():
             st.caption("Each row pairs a module key with its method name and citation so you can trace provenance.")
         else:
             st.caption("Builder mode keeps keys visible to match code, jobs, and metadata entries.")
@@ -1009,7 +1058,7 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         show_lab_mode_note(
             f"{len(descriptor.operations)} operation(s) ready; {_truncate(meta.method_name if meta else 'method metadata pending')}"
         )
-    elif _is_builder(mode) and meta:
+    elif is_builder() and meta:
         st.caption("Registry metadata available below for debugging.")
 
     st.write(descriptor.description or "No description provided.")
@@ -1032,19 +1081,29 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
     if descriptor.module_id == "pchem.calorimetry":
         _render_pchem_calorimetry_runner(metadata_registry, mode)
 
-    if _is_builder(mode):
+    if is_builder():
         st.markdown("#### Debug payloads")
         st.caption("Toggle registry entries to validate wiring without cluttering other modes.")
-        if st.checkbox("Show descriptor JSON", key=f"descriptor_json_{descriptor.module_id}"):
-            st.json({"module_id": descriptor.module_id, "version": descriptor.version})
-            st.json({"operations": {op.name: op.description for op in descriptor.operations.values()}})
-        if meta and st.checkbox("Show registry metadata", key=f"metadata_json_{descriptor.module_id}"):
-            st.json({"metadata_key": meta.key, "metadata": meta.__dict__})
+        render_debug_toggle(
+            "Show descriptor JSON",
+            key=f"descriptor_json_{descriptor.module_id}",
+            payload={
+                "module_id": descriptor.module_id,
+                "version": descriptor.version,
+                "operations": {op.name: op.description for op in descriptor.operations.values()},
+            },
+        )
+        if meta:
+            render_debug_toggle(
+                "Show registry metadata",
+                key=f"metadata_json_{descriptor.module_id}",
+                payload={"metadata_key": meta.key, "metadata": meta.__dict__},
+            )
 
 
 def _render_audit_log(events: Sequence[dict[str, object]], mode: str) -> None:
     st.subheader("Audit Log")
-    if _is_learner(mode):
+    if is_learner():
         st.info("Audit entries show who did what, when, and why. These logs anchor ALCOA+ compliance.")
     if not events:
         st.info("No audit events recorded yet.")
@@ -1062,7 +1121,7 @@ def _render_audit_log(events: Sequence[dict[str, object]], mode: str) -> None:
                 )
             else:
                 st.json(event)
-    if _is_builder(mode):
+    if is_builder():
         st.caption("Builder mode exposes raw audit dictionaries to validate logging schemas.")
 
 def render_control_panel() -> None:
