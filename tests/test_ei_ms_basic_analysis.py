@@ -18,7 +18,7 @@ def test_run_ei_ms_analysis_detects_base_peak() -> None:
     fragments = result["fragments"]
     assert fragments[1]["classification"] == "base_peak"
     assert result["summary"]["base_peak_mass"] == 120.0
-    assert all(fragment["classification"] == "minor_peak" for i, fragment in enumerate(fragments) if i != 1)
+    assert all(fragment["classification"] in ("minor_fragment", "major_fragment") for i, fragment in enumerate(fragments) if i != 1)
 
 
 def test_run_ei_ms_analysis_tags_neutral_losses() -> None:

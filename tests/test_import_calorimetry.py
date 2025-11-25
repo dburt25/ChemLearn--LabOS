@@ -9,30 +9,31 @@ from labos.modules.imports.calorimetry import import_calorimetry_table
 
 def test_import_calorimetry_table_resolves_synonym_columns() -> None:
     rows = [
-        {"Time (s)": 0, "Temp C": 25.5, "heatflow": 1.2, "Sample": "X1", "note": "start"},
-        {"Time (s)": 10, "Temp C": 26.0, "heatflow": 1.0, "Sample": "X1", "note": "mid"},
+        {"mass": 10.5, "cp": 4.18, "t_initial": 298.0, "t_final": 305.0, "Sample": "X1", "note": "start"},
+        {"mass": 10.5, "cp": 4.18, "t_initial": 298.0, "t_final": 306.0, "Sample": "X1", "note": "mid"},
     ]
 
     result = import_calorimetry_table(rows)
 
     assert result["module_key"] == "import.calorimetry"
-    assert result["column_mapping"]["Time (s)"] == "time_s"
-    assert result["column_mapping"]["Temp C"] == "temperature_c"
-    assert result["column_mapping"]["heatflow"] == "heat_flow_mw"
-    assert result["column_mapping"]["note"] == "event_label"
+    assert result["column_mapping"]["mass"] == "mass_g"
+    assert result["column_mapping"]["cp"] == "specific_heat_j_per_gk"
+    assert result["column_mapping"]["t_initial"] == "t_initial_k"
+    assert result["column_mapping"]["t_final"] == "t_final_k"
+    assert result["column_mapping"]["note"] == "notes"
     assert result["unmatched_columns"] == []
 
     record = result["records"][0]
-    assert set(record.keys()) >= {"time_s", "temperature_c", "heat_flow_mw", "sample_id", "event_label"}
+    assert set(record.keys()) >= {"mass_g", "specific_heat_j_per_gk", "t_initial_k", "t_final_k", "sample_id", "notes"}
 
 
 def test_import_calorimetry_table_missing_required_columns_raises() -> None:
-    with pytest.raises(ValueError, match="Missing required calorimetry columns"):
-        import_calorimetry_table([{"Temp": 25.0, "Sample": "X2"}], column_mapping={"Temp": "temperature_c"})
+    with pytest.raises(ValueError, match="Required calorimetry columns not found"):
+        import_calorimetry_table([{"Sample": "X2", "note": "test"}])
 
 
 def test_import_calorimetry_table_invalid_float_values() -> None:
-    rows = [{"time": "not-a-number", "temperature": 22.0}]
+    rows = [{"mass": "not-a-number", "cp": 4.18, "t_initial": 298.0, "t_final": 305.0}]
 
     with pytest.raises(ValueError, match="expects a float"):
         import_calorimetry_table(rows)
