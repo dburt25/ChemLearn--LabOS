@@ -1044,7 +1044,11 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
             options=module_ids,
             help="Review descriptor details before wiring jobs or experiments to it.",
         )
-    elif is_lab():
+
+    descriptor = modules[selected_module]
+    meta = metadata_map.get(selected_module)
+
+    if is_lab():
         show_lab_mode_note(
             f"{len(descriptor.operations)} operation(s) ready; {_truncate(meta.method_name if meta else 'method metadata pending')}"
         )
