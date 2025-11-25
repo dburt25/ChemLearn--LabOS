@@ -15,6 +15,7 @@ Use this list before merging or promoting work between phases. Status tags: ✅ 
 - ◐ Method & Data footer renders module key/name plus limitations where available; ensure consistent UI surfacing in all modes (future UI pass).
 - ◐ Registry lookups should emit producing module IDs alongside jobs/datasets; extend coverage for downstream pipelines.
 - ◐ Job/Dataset panels show import/provenance previews (Wave 2); cryptographic signing and immutable lineage proofs remain future-phase work.
+- ◐ Each new module documents `method_name`, `primary_citation` (including textbooks/handbooks when they provide formulas), and `dataset_citations` with version/DOI details before registration.
 
 ## Documentation & Traceability
 - ✅ CHANGELOG updated for repository-visible changes.

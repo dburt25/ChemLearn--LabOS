@@ -4,6 +4,7 @@ Document scientific validation activities once numerical or analytical logic shi
 
 | Date (UTC) | Component | Change Summary | Evidence |
 | --- | --- | --- | --- |
+| 2026-03-06T00:00:00Z | Provenance docs | Updated PROVENANCE_GUIDE and compliance checklists to require method_name/primary_citation/dataset_citations and textbook attribution guidance. | Documentation review |
 | 2025-11-22T00:00:00Z | Streamlit Control Panel | Verified `streamlit run app.py` renders the control panel header/sections and placeholder metrics. | Manual run + Streamlit console output |
 | 2025-11-22T00:00:00Z | Core dataclasses | `python -m unittest discover -s tests` (4 tests) covering placeholder instantiations. | Test log in workspace terminal |
 | 2025-11-22T12:15:00Z | Audit helpers | Desk review: confirmed `record_event()` writes chained checksums and BaseRecord `attach_audit_event` updates ALCOA trail. | Compliance & Legal Bot sign-off (docs/compliance-notes.md) |

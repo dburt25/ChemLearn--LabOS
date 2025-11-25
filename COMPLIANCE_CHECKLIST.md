@@ -6,6 +6,8 @@ Use this checklist to keep documentation aligned with governance, provenance, an
 - [ ] Document module registry entries with explicit provenance metadata (source, method version, dataset lineage).
 - [ ] Ensure DatasetRef linkage is recorded for every module output and stored in audit events.
 - [ ] Validate that provenance fields are populated before registering new modules or scientific methods.
+- [ ] Confirm each new module records `method_name`, `primary_citation` (including handbook/textbook sources when used), and
+      `dataset_citations` with DOIs/links and version notes.
 
 ## Dataset Handling
 - [ ] Confirm datasets include source attribution, usage restrictions, and licensing notes.
