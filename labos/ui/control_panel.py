@@ -33,6 +33,7 @@ from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
+from labos.ui.components import mode_badge, section_block, section_header, spaced_columns, subtle_divider, title_block
 from labos.ui.workspace import render_workspace
 from labos.ui.provenance_footer import render_method_and_data_footer
 
@@ -487,21 +488,15 @@ def _load_audit_events(config: LabOSConfig, limit: int = 20) -> list[dict[str, o
 
 
 def _render_header() -> None:
-    col1, col2 = st.columns([3, 1])
+    col1, col2 = spaced_columns([4, 1], gap="large")
     profile = MODE_PROFILES.get(st.session_state.mode, MODE_PROFILES[MODES[0]])
     with col1:
-        st.markdown(
-            """
-            # 🧪 LabOS Control Panel
-            
-            _ChemLearn LabOS – Phase 0 Skeleton_
-            """,
-            unsafe_allow_html=True,
-        )
+        title_block("🧪 LabOS Control Panel", "ChemLearn LabOS – Phase 0 Skeleton")
         tagline = str(profile.get("tagline", ""))
         if tagline:
             st.caption(tagline)
     with col2:
+        st.markdown(mode_badge(st.session_state.mode, emphasize=True), unsafe_allow_html=True)
         st.markdown("#### Mode")
         mode = st.radio(
             "Mode",
@@ -544,7 +539,7 @@ def _render_overview(
     registry: ModuleRegistry,
     mode: str,
 ) -> None:
-    st.subheader("Overview")
+    section_header("Overview", "Cross-panel snapshot of experiments, jobs, and datasets.", icon="📊")
     tip = _mode_tip("overview")
     if tip:
         st.caption(tip)
@@ -648,7 +643,7 @@ def _render_overview(
 
 
 def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
-    st.subheader("Experiments")
+    section_header("Experiments", "Track study umbrellas and their latest updates.", icon="🧬")
     if is_learner():
         show_experiment_explanation()
     _render_section_explainer("Experiments", mode)
@@ -704,7 +699,7 @@ def _render_jobs(
     audit_events: Sequence[dict[str, object]],
     mode: str,
 ) -> None:
-    st.subheader("Jobs")
+    section_header("Jobs", "Inspect recorded runs and their linked datasets.", icon="🧾")
     if is_learner():
         show_job_explanation()
     _render_section_explainer("Jobs", mode)
@@ -807,7 +802,7 @@ def _render_jobs(
 
 
 def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
-    st.subheader("Datasets")
+    section_header("Datasets", "Preview registered data assets and provenance hints.", icon="🗂️")
     if not datasets:
         st.info("No datasets registered yet.")
         return
@@ -988,19 +983,19 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
                 st.success(f"Job {result.job.id} completed; produced {dataset_label}.")
                 st.session_state.pchem_last_workflow = {"payload": result.to_dict()}
 
-    last_payload = st.session_state.get("pchem_last_workflow")
-    payload = None
-    if isinstance(last_payload, Mapping):
-        last_mapping = cast(Mapping[str, object], last_payload)
-        candidate = last_mapping.get("payload")
-        payload = cast(Mapping[str, object] | None, candidate or last_mapping)
+        last_payload = st.session_state.get("pchem_last_workflow")
+        payload = None
+        if isinstance(last_payload, Mapping):
+            last_mapping = cast(Mapping[str, object], last_payload)
+            candidate = last_mapping.get("payload")
+            payload = cast(Mapping[str, object] | None, candidate or last_mapping)
 
-    if payload:
-        _render_calorimetry_results(payload, meta, mode)
+        if payload:
+            _render_calorimetry_results(payload, meta, mode)
 
 
 def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
-    st.subheader("Modules & Operations")
+    section_header("Modules & Operations", "Review registered modules and guided runners.", icon="🧭")
     if is_learner():
         show_module_explanation()
         show_ei_ms_explanation()
@@ -1037,22 +1032,17 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         st.info("No modules registered. Set LABOS_MODULES or call register_descriptor() from your plugin.")
         return
 
-    st.markdown("### Module Inspector")
-    st.caption("Future waves will add Run buttons that execute operations into Jobs/Datasets.")
-
-    module_ids = sorted(modules.keys())
-    selected_module = st.selectbox(
-        "Select module",
-        options=module_ids,
-        help="Review descriptor details before wiring jobs or experiments to it.",
-    )
-    descriptor = modules[selected_module]
-    meta = metadata_map.get(descriptor.module_id)
-
-    st.markdown(f"**Active module:** `{descriptor.module_id}` (v{descriptor.version})")
-    if meta and is_learner():
-        st.info(
-            f"{meta.display_name}: {meta.method_name}. {_truncate(meta.primary_citation)}"
+    subtle_divider()
+    with section_block(
+        "Module Inspector",
+        "Future waves will add Run buttons that execute operations into Jobs/Datasets.",
+        icon="🔎",
+    ):
+        module_ids = sorted(modules.keys())
+        selected_module = st.selectbox(
+            "Select module",
+            options=module_ids,
+            help="Review descriptor details before wiring jobs or experiments to it.",
         )
     elif is_lab():
         show_lab_mode_note(
@@ -1078,8 +1068,8 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
     else:
         st.write("_No operations registered._")
 
-    if descriptor.module_id == "pchem.calorimetry":
-        _render_pchem_calorimetry_runner(metadata_registry, mode)
+        if descriptor.module_id == "pchem.calorimetry":
+            _render_pchem_calorimetry_runner(metadata_registry, mode)
 
     if is_builder():
         st.markdown("#### Debug payloads")
