@@ -35,6 +35,8 @@ class ModuleMetadata:
     category: str = "general"
 
     def to_dict(self) -> Dict[str, str | List[str]]:
+        """Return a shallow copy of the metadata fields as a dictionary."""
+
         return {
             "key": self.key,
             "display_name": self.display_name,
@@ -63,35 +65,55 @@ class ModuleRegistry:
 
     # ---- Metadata management -------------------------------------------------
     def register(self, meta: ModuleMetadata) -> None:
+        """Register a single module's metadata by its key."""
+
+        if not meta.key:
+            raise ValueError("module metadata requires a non-empty key")
         self._modules[meta.key] = meta
 
     def register_many(self, entries: Iterable[ModuleMetadata]) -> None:
+        """Register multiple metadata entries in sequence."""
+
         for meta in entries:
             self.register(meta)
 
     def get_metadata(self, key: str) -> ModuleMetadata:
+        """Return metadata for ``key`` or raise ``NotFoundError`` if missing."""
+
         try:
             return self._modules[key]
         except KeyError as exc:
             raise NotFoundError(f"Module metadata not found for key {key!r}") from exc
 
     def get_metadata_optional(self, key: str) -> Optional[ModuleMetadata]:
+        """Return metadata for ``key`` when present, otherwise ``None``."""
+
         return self._modules.get(key)
 
     # Compatibility aliases used by early-phase tests/clients
     def get(self, key: str) -> Optional[ModuleMetadata]:
+        """Compatibility alias for :meth:`get_metadata_optional`."""
+
         return self.get_metadata_optional(key)
 
     def list_metadata(self) -> List[ModuleMetadata]:
+        """Return all registered metadata entries in insertion order."""
+
         return list(self._modules.values())
 
     def all(self) -> List[ModuleMetadata]:
+        """Compatibility alias for :meth:`list_metadata`."""
+
         return self.list_metadata()
 
     def list_keys(self) -> List[str]:
+        """Return the keys of all registered metadata entries."""
+
         return [meta.key for meta in self.list_metadata()]
 
     def search(self, *, category: Optional[str] = None, name_contains: Optional[str] = None) -> List[ModuleMetadata]:
+        """Search metadata entries by category and/or substring match."""
+
         results: List[ModuleMetadata] = []
         for meta in self._modules.values():
             if category and meta.category.lower() != category.lower():
@@ -103,11 +125,24 @@ class ModuleRegistry:
 
     # ---- Operation helpers ---------------------------------------------------
     def get_callable(self, key: str, operation: str = "compute") -> Callable[[dict], dict]:
-        operation_record = self._operation_registry.get_operation(key, operation)
+        """Return the callable registered for ``operation`` on ``key``."""
+
+        operation_record = self._get_operation_record(key, operation)
         return operation_record.handler
 
     def run(self, key: str, operation: str, params: dict[str, object] | None = None) -> dict[str, object]:
+        """Execute ``operation`` for ``key`` using the runtime registry."""
+
+        self._get_operation_record(key, operation)
         return dict(self._operation_registry.run(key, operation, params or {}))
+
+    def _get_operation_record(self, key: str, operation: str):
+        """Retrieve an operation record and surface missing modules clearly."""
+
+        try:
+            return self._operation_registry.get_operation(key, operation)
+        except KeyError as exc:
+            raise NotFoundError(f"Module operation not found for key {key!r} and operation {operation!r}") from exc
 
     # ---- Factory helpers -----------------------------------------------------
     @classmethod
