@@ -4,6 +4,7 @@ Document scientific validation activities once numerical or analytical logic shi
 
 | Date (UTC) | Component | Change Summary | Evidence |
 | --- | --- | --- | --- |
+| 2026-03-06T00:00:00Z | Provenance docs | Updated PROVENANCE_GUIDE and compliance checklists to require method_name/primary_citation/dataset_citations and textbook attribution guidance. | Documentation review |
 | 2025-11-22T00:00:00Z | Streamlit Control Panel | Verified `streamlit run app.py` renders the control panel header/sections and placeholder metrics. | Manual run + Streamlit console output |
 | 2025-11-22T00:00:00Z | Core dataclasses | `python -m unittest discover -s tests` (4 tests) covering placeholder instantiations. | Test log in workspace terminal |
 | 2025-11-22T12:15:00Z | Audit helpers | Desk review: confirmed `record_event()` writes chained checksums and BaseRecord `attach_audit_event` updates ALCOA trail. | Compliance & Legal Bot sign-off (docs/compliance-notes.md) |
@@ -21,6 +22,9 @@ Document scientific validation activities once numerical or analytical logic shi
 | 2025-11-22T17:00:00Z | Testing & Validation | Resolved import stub conflict and added Streamlit guards so `python -m unittest` (15 tests, including `tests.test_import_provenance`) now passes in clean envs without installing Streamlit. | `python -m unittest` terminal log |
 | 2025-11-22T22:05:51Z | Workflow pipeline tests | Added end-to-end calorimetry run_module_job coverage for Experiment/Job/DatasetRef/AuditEvent lineage and WorkflowResult shape regression. | \`python -m unittest tests.test_workflow_pipeline\` |
 | 2025-11-23T00:00:00Z | Compliance & Provenance Docs | Updated COMPLIANCE_CHECKLIST.md, compliance-notes.md, and docs/PROVENANCE_GUIDE.md alongside prior Bot 7/8 validation runs to keep provenance guidance aligned with test coverage. | Documentation review (no automated tests) |
-
 | 2025-11-23T00:00:00Z | Control Panel UI Tests | Added lightweight mode/helper coverage for mode tips, dataset/job labels, and truncation without requiring Streamlit. | `python -m pytest tests/test_ui_mode_helpers.py` |
 | 2025-11-23T10:00:00Z | Core workflow & module registry | Added calorimetry/EI-MS workflow lineage assertions (Experiment/Job/DatasetRef/AuditEvent) and verified builtin module registry keys. | `python -m unittest tests.test_workflow_jobs_integration tests.test_module_registry` |
+| 2025-11-23T12:45:00Z | Performance stubs | Added time-boxed workflow repetition and inline import runs to surface stability issues before heavier benchmarks. | `python -m pytest tests/perf` |
+| 2025-11-25T00:59:30Z | Control Panel UI Tests | Added default-mode fallbacks, audit lookup, and dataset ID parsing coverage for mode helpers. | `python -m pytest tests/test_ui_mode_helpers.py` |
+| 2025-11-23T12:00:00Z | P-Chem, EI-MS, Import validation | Added unit tests covering calorimetry stubs, ideal gas and ΔG helpers, EI-MS base peak/loss tagging, and calorimetry import column/validation paths. | `pytest tests/test_pchem_operations.py tests/test_ei_ms_basic_analysis.py tests/test_import_calorimetry.py` |
+| 2025-11-23T18:00:00Z | Workflow lineage & registry | Added calorimetry workflow regression for Experiment/Job/DatasetRef/AuditEvent IDs and ModuleRegistry built-in key coverage. | `python -m pytest tests/test_workflow_experiment_lineage.py tests/test_module_registry.py` |

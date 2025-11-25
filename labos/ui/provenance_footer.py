@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from html import escape
-from typing import Any, Sequence, cast
+from typing import Any, Optional, Sequence, cast
 
 try:  # pragma: no cover - allows import without optional dependency
     import streamlit as _streamlit  # type: ignore
@@ -22,7 +22,7 @@ st = cast(Any, _streamlit)
 
 def render_method_and_data_footer(
     module_registry: MetadataRegistry,
-    recent_audits: Sequence[dict[str, object]] | None,
+    recent_audits: Optional[Sequence[dict[str, object]]],
     mode: str,
 ) -> None:
     """Render a mode-aware Method & Data footer with module provenance hints."""
