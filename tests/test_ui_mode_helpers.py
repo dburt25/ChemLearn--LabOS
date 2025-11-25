@@ -107,3 +107,54 @@ def test_mode_tip_defaults_to_learner_when_section_missing(monkeypatch):
     stub.session_state.mode = "Unknown"
     fallback_tip = control_panel._mode_tip("experiments")
     assert "experiment" in fallback_tip.lower()
+
+
+def test_mode_predicates_default_to_learner_when_unset(monkeypatch):
+    stub = DummyStreamlit(mode="Lab")
+    # Simulate an empty session_state without a mode key
+    stub.session_state = DummySessionState()
+    monkeypatch.setattr(control_panel, "st", stub)
+
+    assert control_panel.is_learner() is True
+    assert control_panel.is_lab() is False
+    assert control_panel.is_builder() is False
+
+
+def test_mode_tip_uses_default_profile_when_mode_missing(monkeypatch):
+    stub = DummyStreamlit(mode="Lab")
+    stub.session_state = DummySessionState(mode=None)
+    monkeypatch.setattr(control_panel, "st", stub)
+
+    tip = control_panel._mode_tip("datasets")
+    assert tip == control_panel.MODE_PROFILES["Learner"]["tips"]["datasets"]
+
+
+def test_job_dataset_ids_handles_invalid_parameters():
+    job = Job.create(
+        experiment_id="exp-2",
+        module_id="mod-2",
+        operation="run",
+        actor="tester",
+        parameters={},
+    )
+
+    assert control_panel._job_dataset_ids(job) == []
+
+    job.parameters = {"dataset_ids": "not-a-sequence"}
+    assert control_panel._job_dataset_ids(job) == []
+
+
+def test_truncate_returns_original_text_when_within_limit():
+    text = "short"
+    assert control_panel._truncate(text, length=len(text)) == text
+
+
+def test_find_audit_by_id_handles_missing_and_matches():
+    events = [
+        {"event_id": "1", "event_type": "created"},
+        {"event_id": "2", "event_type": "updated"},
+    ]
+
+    assert control_panel._find_audit_by_id(events, None) is None
+    assert control_panel._find_audit_by_id(events, "3") is None
+    assert control_panel._find_audit_by_id(events, "2") == events[1]
