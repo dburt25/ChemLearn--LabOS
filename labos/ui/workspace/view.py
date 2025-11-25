@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Mapping, Optional, Sequence, cast
 
 try:  # pragma: no cover - imported at module import time only
     import streamlit as _streamlit  # type: ignore
@@ -32,7 +32,7 @@ def _truncate(text: str, length: int = 160) -> str:
     return text[: length - 1].rstrip() + "…"
 
 
-def _parse_timestamp(value: str | None) -> str:
+def _parse_timestamp(value: Optional[str]) -> str:
     if not value:
         return "Unknown"
     try:
@@ -65,10 +65,10 @@ def _job_status_color(status: JobStatus) -> str:
 
 def _job_timestamp(job: Job) -> str:
     if getattr(job, "completed_at", None):
-        return _parse_timestamp(cast(str | None, job.completed_at))
+        return _parse_timestamp(cast(Optional[str], job.completed_at))
     if getattr(job, "updated_at", None):
-        return _parse_timestamp(cast(str | None, job.updated_at))
-    return _parse_timestamp(cast(str | None, getattr(job, "created_at", None)))
+        return _parse_timestamp(cast(Optional[str], job.updated_at))
+    return _parse_timestamp(cast(Optional[str], getattr(job, "created_at", None)))
 
 
 def _extract_dataset_ids(job: Job) -> list[str]:

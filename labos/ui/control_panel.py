@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence, cast
+from typing import Any, Mapping, Optional, Sequence, cast
 
 try:  # pragma: no cover - imported at module import time only
     import streamlit as _streamlit  # type: ignore
@@ -263,7 +263,7 @@ def show_ei_ms_explanation() -> None:
         )
 
 
-def show_method_metadata(meta: ModuleMetadata | None) -> None:
+def show_method_metadata(meta: Optional[ModuleMetadata]) -> None:
     if not meta:
         st.caption("Method metadata unavailable for this module.")
         return
@@ -275,13 +275,13 @@ def show_method_metadata(meta: ModuleMetadata | None) -> None:
     st.caption(f"Version: {meta.version} • Reference: {meta.reference_url or 'Not provided'}")
 
 
-def show_calorimetry_method_snippet(meta: ModuleMetadata | None, dataset_id: str | None) -> None:
+def show_calorimetry_method_snippet(meta: Optional[ModuleMetadata], dataset_id: Optional[str]) -> None:
     method_name = meta.method_name if meta else "Calorimetry estimation"
     dataset_label = dataset_id or "dataset pending"
     st.caption(f"Method & Data: {method_name} • Output dataset: {dataset_label}")
 
 
-def show_method_summary(meta: ModuleMetadata | None) -> None:
+def show_method_summary(meta: Optional[ModuleMetadata]) -> None:
     module_key = meta.key if meta else "pchem.calorimetry"
     method_name = meta.method_name if meta else "Calorimetry metadata stub"
     display_name = meta.display_name if meta else "Calorimetry"
@@ -321,11 +321,11 @@ def show_json_restricted_message(entity: str) -> None:
 
 
 def show_calorimetry_raw_data(
-    experiment_payload: Mapping[str, object] | None,
-    job_payload: Mapping[str, object] | None,
-    dataset_payload: Mapping[str, object] | None,
-    audit_payload: Sequence[Mapping[str, object]] | None,
-    meta: ModuleMetadata | None,
+    experiment_payload: Optional[Mapping[str, object]],
+    job_payload: Optional[Mapping[str, object]],
+    dataset_payload: Optional[Mapping[str, object]],
+    audit_payload: Optional[Sequence[Mapping[str, object]]],
+    meta: Optional[ModuleMetadata],
 ) -> None:
     if st.checkbox("Show Experiment JSON", key="calorimetry_show_experiment"):
         st.json(experiment_payload or {"message": "No experiment payload captured."})
@@ -354,7 +354,9 @@ def _job_dataset_ids(job: Job) -> list[str]:
     return list(dict.fromkeys(ids))
 
 
-def _find_audit_by_id(events: Sequence[dict[str, object]], event_id: str | None) -> dict[str, object] | None:
+def _find_audit_by_id(
+    events: Sequence[dict[str, object]], event_id: Optional[str]
+) -> Optional[dict[str, object]]:
     if not event_id:
         return None
     for event in events:
@@ -863,27 +865,27 @@ def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
                         show_lab_mode_note("Dataset JSON available in Builder mode to reduce visual clutter here.")
 
 def _render_calorimetry_results(
-    payload: Mapping[str, object], meta: ModuleMetadata | None, mode: str
+    payload: Mapping[str, object], meta: Optional[ModuleMetadata], mode: str
 ) -> None:
     st.markdown("#### Results")
 
-    experiment_payload = cast(Mapping[str, object] | None, payload.get("experiment"))
-    job_payload = cast(Mapping[str, object] | None, payload.get("job"))
-    dataset_payload = cast(Mapping[str, object] | None, payload.get("dataset"))
-    audit_payload = cast(Sequence[Mapping[str, object]] | None, payload.get("audit_events"))
+    experiment_payload = cast(Optional[Mapping[str, object]], payload.get("experiment"))
+    job_payload = cast(Optional[Mapping[str, object]], payload.get("job"))
+    dataset_payload = cast(Optional[Mapping[str, object]], payload.get("dataset"))
+    audit_payload = cast(Optional[Sequence[Mapping[str, object]]], payload.get("audit_events"))
 
     params = cast(Mapping[str, object], (job_payload or {}).get("params") or {})
     delta_t = params.get("delta_t")
     heat_capacity = params.get("heat_capacity")
     sample_id = params.get("sample_id")
 
-    dataset_id = cast(str | None, (dataset_payload or {}).get("id"))
-    job_id = cast(str | None, (job_payload or {}).get("id"))
-    experiment_name = cast(str | None, (experiment_payload or {}).get("name")) or cast(
-        str | None, (experiment_payload or {}).get("id")
+    dataset_id = cast(Optional[str], (dataset_payload or {}).get("id"))
+    job_id = cast(Optional[str], (job_payload or {}).get("id"))
+    experiment_name = cast(Optional[str], (experiment_payload or {}).get("name")) or cast(
+        Optional[str], (experiment_payload or {}).get("id")
     )
 
-    heat_transfer: float | None = None
+    heat_transfer: Optional[float] = None
     try:
         if isinstance(delta_t, (int, float)) and isinstance(heat_capacity, (int, float)):
             heat_transfer = float(heat_capacity) * float(delta_t)
