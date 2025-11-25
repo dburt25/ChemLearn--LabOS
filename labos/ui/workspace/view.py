@@ -23,6 +23,7 @@ st: Any = cast(Any, _streamlit)
 
 from labos.experiments import Experiment
 from labos.jobs import Job, JobStatus
+from labos.ui.components import mode_badge, section_header, spaced_columns, subtle_divider
 
 
 def _truncate(text: str, length: int = 160) -> str:
@@ -107,7 +108,7 @@ def _render_job(job: Job, *, builder: bool) -> None:
     status_label = _job_status_label(job.status)
     color = _job_status_color(job.status)
 
-    row = st.columns([2, 1, 1.2, 3])
+    row = spaced_columns([2, 1, 1.2, 3], gap="small")
     row[0].markdown(f"**{job.module_id}** · `{job.operation}`")
     row[1].markdown(f"<span style='color:{color};font-weight:600'>{status_label}</span>", unsafe_allow_html=True)
     row[2].markdown(f"`{timestamp}`")
@@ -133,9 +134,15 @@ def render_workspace(experiments: Sequence[Experiment], jobs: Sequence[Job], mod
     """Render workspace area with experiments and job history."""
 
     builder = mode == "Builder"
-
-    st.subheader("Workspace")
-    st.caption("Review experiments alongside their recorded jobs and statuses.")
+    header_cols = spaced_columns([1, 5], gap="small")
+    with header_cols[0]:
+        st.markdown(mode_badge(mode), unsafe_allow_html=True)
+    with header_cols[1]:
+        section_header(
+            "Workspace",
+            "Review experiments alongside their recorded jobs and statuses.",
+            icon="🗂️",
+        )
 
     if not experiments:
         st.info("No experiments recorded yet. Run a workflow to see experiments and jobs appear here.")
@@ -153,6 +160,7 @@ def render_workspace(experiments: Sequence[Experiment], jobs: Sequence[Job], mod
         jobs_by_experiment.setdefault(job.experiment_id, []).append(job)
 
     for exp in sorted_experiments:
+        subtle_divider()
         with st.container():
             _render_experiment_header(exp)
             exp_jobs = sorted(

@@ -33,6 +33,7 @@ from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
+from labos.ui.components import mode_badge, section_block, section_header, spaced_columns, subtle_divider, title_block
 from labos.ui.workspace import render_workspace
 from labos.ui.provenance_footer import render_method_and_data_footer
 
@@ -159,12 +160,21 @@ def _render_mode_banner(
         jobs=len(jobs),
         modules_count=modules_count,
     )
-    callout(message)
-    what_is_this = profile.get("what_is_this")
-    if what_is_this:
-        expanded = _is_learner(st.session_state.mode)
-        with st.expander("What is this mode?", expanded=expanded):
-            st.markdown(str(what_is_this))
+    with st.container():
+        badge_col, message_col = spaced_columns([1, 5], gap="medium")
+        with badge_col:
+            st.markdown(mode_badge(st.session_state.mode), unsafe_allow_html=True)
+            tagline = str(profile.get("tagline", ""))
+            if tagline:
+                st.caption(tagline)
+        with message_col:
+            callout(message)
+            what_is_this = profile.get("what_is_this")
+            if what_is_this:
+                expanded = _is_learner(st.session_state.mode)
+                with st.expander("What is this mode?", expanded=expanded):
+                    st.markdown(str(what_is_this))
+    subtle_divider()
 
 
 def _render_section_explainer(section: str, mode: str) -> None:
@@ -453,21 +463,15 @@ def _load_audit_events(config: LabOSConfig, limit: int = 20) -> list[dict[str, o
 
 
 def _render_header() -> None:
-    col1, col2 = st.columns([3, 1])
+    col1, col2 = spaced_columns([4, 1], gap="large")
     profile = MODE_PROFILES.get(st.session_state.mode, MODE_PROFILES[MODES[0]])
     with col1:
-        st.markdown(
-            """
-            # 🧪 LabOS Control Panel
-            
-            _ChemLearn LabOS – Phase 0 Skeleton_
-            """,
-            unsafe_allow_html=True,
-        )
+        title_block("🧪 LabOS Control Panel", "ChemLearn LabOS – Phase 0 Skeleton")
         tagline = str(profile.get("tagline", ""))
         if tagline:
             st.caption(tagline)
     with col2:
+        st.markdown(mode_badge(st.session_state.mode, emphasize=True), unsafe_allow_html=True)
         st.markdown("#### Mode")
         mode = st.radio(
             "Mode",
@@ -510,7 +514,7 @@ def _render_overview(
     registry: ModuleRegistry,
     mode: str,
 ) -> None:
-    st.subheader("Overview")
+    section_header("Overview", "Cross-panel snapshot of experiments, jobs, and datasets.", icon="📊")
     tip = _mode_tip("overview")
     if tip:
         st.caption(tip)
@@ -614,7 +618,7 @@ def _render_overview(
 
 
 def _render_experiments(experiments: Sequence[Experiment], mode: str) -> None:
-    st.subheader("Experiments")
+    section_header("Experiments", "Track study umbrellas and their latest updates.", icon="🧬")
     if is_learner():
         show_experiment_explanation()
     _render_section_explainer("Experiments", mode)
@@ -670,7 +674,7 @@ def _render_jobs(
     audit_events: Sequence[dict[str, object]],
     mode: str,
 ) -> None:
-    st.subheader("Jobs")
+    section_header("Jobs", "Inspect recorded runs and their linked datasets.", icon="🧾")
     if is_learner():
         show_job_explanation()
     _render_section_explainer("Jobs", mode)
@@ -763,7 +767,7 @@ def _render_jobs(
 
 
 def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
-    st.subheader("Datasets")
+    section_header("Datasets", "Preview registered data assets and provenance hints.", icon="🗂️")
     if not datasets:
         st.info("No datasets registered yet.")
         return
@@ -882,77 +886,81 @@ def _render_calorimetry_results(
 def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str) -> None:
     meta = meta_registry.get("pchem.calorimetry")
 
-    st.markdown("#### Run Calorimetry Workflow (beta)")
-    if _is_learner(mode):
-        st.caption(
-            "Learner mode explains each part of the workflow before you run it."
-        )
-        show_calorimetry_equations()
-        show_method_summary(meta)
-    elif _is_lab(mode):
-        show_lab_mode_note("Enter only the required fields; detailed equations hide in Learner mode.")
-    else:
-        st.caption("Creates an experiment + job, calls the PChem calorimetry stub, and emits dataset/audit metadata.")
-        if meta:
-            st.caption(f"Registry method: {meta.method_name}")
+    with section_block(
+        "PChem Calorimetry",
+        "Run Calorimetry Workflow (beta)",
+        icon="🌡️",
+    ):
+        if _is_learner(mode):
+            st.caption(
+                "Learner mode explains each part of the workflow before you run it."
+            )
+            show_calorimetry_equations()
+            show_method_summary(meta)
+        elif _is_lab(mode):
+            show_lab_mode_note("Enter only the required fields; detailed equations hide in Learner mode.")
+        else:
+            st.caption("Creates an experiment + job, calls the PChem calorimetry stub, and emits dataset/audit metadata.")
+            if meta:
+                st.caption(f"Registry method: {meta.method_name}")
 
-    if _is_builder(mode):
-        if st.checkbox("Show calorimetry registry metadata", key="calorimetry_registry"):
-            st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
+        if _is_builder(mode):
+            if st.checkbox("Show calorimetry registry metadata", key="calorimetry_registry"):
+                st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
 
-    if _is_learner(mode):
-        st.markdown("##### How this works")
-        show_experiment_explanation()
-        show_job_explanation()
-        show_module_explanation()
+        if _is_learner(mode):
+            st.markdown("##### How this works")
+            show_experiment_explanation()
+            show_job_explanation()
+            show_module_explanation()
 
-    default_name = st.session_state.get("pchem_default_experiment")
-    if not default_name:
-        default_name = f"Calorimetry Demo {datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+        default_name = st.session_state.get("pchem_default_experiment")
+        if not default_name:
+            default_name = f"Calorimetry Demo {datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
 
-    with st.form("pchem_calorimetry_form", clear_on_submit=False):
-        experiment_name = st.text_input("Experiment Name", value=default_name)
-        sample_id = st.text_input("Sample ID", value="SAMPLE-STUB")
-        delta_t = st.number_input("Delta T (C)", value=3.5, step=0.1)
-        heat_capacity = st.number_input("Heat Capacity (J/g*C)", value=4.18, step=0.01)
-        actor = st.text_input("Actor", value="lab-operator")
-        submitted = st.form_submit_button("Run calorimetry workflow", use_container_width=True)
+        with st.form("pchem_calorimetry_form", clear_on_submit=False):
+            experiment_name = st.text_input("Experiment Name", value=default_name)
+            sample_id = st.text_input("Sample ID", value="SAMPLE-STUB")
+            delta_t = st.number_input("Delta T (C)", value=3.5, step=0.1)
+            heat_capacity = st.number_input("Heat Capacity (J/g*C)", value=4.18, step=0.01)
+            actor = st.text_input("Actor", value="lab-operator")
+            submitted = st.form_submit_button("Run calorimetry workflow", use_container_width=True)
 
-    if submitted:
-        st.session_state.pchem_default_experiment = experiment_name
-        with st.spinner("Executing calorimetry stub..."):
-            try:
-                result = run_module_job(
-                    module_key="pchem.calorimetry",
-                    params={
-                        "sample_id": sample_id,
-                        "delta_t": float(delta_t),
-                        "heat_capacity": float(heat_capacity),
-                        "actor": actor,
-                    },
-                    actor=actor,
-                    experiment_name=experiment_name,
-                )
-            except Exception as exc:  # pragma: no cover - UI feedback path
-                st.error(f"Calorimetry workflow failed: {exc}")
-            else:
-                dataset_label = result.dataset.id if result.dataset else "dataset-pending"
-                st.success(f"Job {result.job.id} completed; produced {dataset_label}.")
-                st.session_state.pchem_last_workflow = {"payload": result.to_dict()}
+        if submitted:
+            st.session_state.pchem_default_experiment = experiment_name
+            with st.spinner("Executing calorimetry stub..."):
+                try:
+                    result = run_module_job(
+                        module_key="pchem.calorimetry",
+                        params={
+                            "sample_id": sample_id,
+                            "delta_t": float(delta_t),
+                            "heat_capacity": float(heat_capacity),
+                            "actor": actor,
+                        },
+                        actor=actor,
+                        experiment_name=experiment_name,
+                    )
+                except Exception as exc:  # pragma: no cover - UI feedback path
+                    st.error(f"Calorimetry workflow failed: {exc}")
+                else:
+                    dataset_label = result.dataset.id if result.dataset else "dataset-pending"
+                    st.success(f"Job {result.job.id} completed; produced {dataset_label}.")
+                    st.session_state.pchem_last_workflow = {"payload": result.to_dict()}
 
-    last_payload = st.session_state.get("pchem_last_workflow")
-    payload = None
-    if isinstance(last_payload, Mapping):
-        last_mapping = cast(Mapping[str, object], last_payload)
-        candidate = last_mapping.get("payload")
-        payload = cast(Mapping[str, object] | None, candidate or last_mapping)
+        last_payload = st.session_state.get("pchem_last_workflow")
+        payload = None
+        if isinstance(last_payload, Mapping):
+            last_mapping = cast(Mapping[str, object], last_payload)
+            candidate = last_mapping.get("payload")
+            payload = cast(Mapping[str, object] | None, candidate or last_mapping)
 
-    if payload:
-        _render_calorimetry_results(payload, meta, mode)
+        if payload:
+            _render_calorimetry_results(payload, meta, mode)
 
 
 def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
-    st.subheader("Modules & Operations")
+    section_header("Modules & Operations", "Review registered modules and guided runners.", icon="🧭")
     if is_learner():
         show_module_explanation()
     _render_section_explainer("Modules", mode)
@@ -988,49 +996,52 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         st.info("No modules registered. Set LABOS_MODULES or call register_descriptor() from your plugin.")
         return
 
-    st.markdown("### Module Inspector")
-    st.caption("Future waves will add Run buttons that execute operations into Jobs/Datasets.")
-
-    module_ids = sorted(modules.keys())
-    selected_module = st.selectbox(
-        "Select module",
-        options=module_ids,
-        help="Review descriptor details before wiring jobs or experiments to it.",
-    )
-    descriptor = modules[selected_module]
-    meta = metadata_map.get(descriptor.module_id)
-
-    st.markdown(f"**Active module:** `{descriptor.module_id}` (v{descriptor.version})")
-    if meta and is_learner():
-        st.info(
-            f"{meta.display_name}: {meta.method_name}. {_truncate(meta.primary_citation)}"
+    subtle_divider()
+    with section_block(
+        "Module Inspector",
+        "Future waves will add Run buttons that execute operations into Jobs/Datasets.",
+        icon="🔎",
+    ):
+        module_ids = sorted(modules.keys())
+        selected_module = st.selectbox(
+            "Select module",
+            options=module_ids,
+            help="Review descriptor details before wiring jobs or experiments to it.",
         )
-    elif is_lab():
-        show_lab_mode_note(
-            f"{len(descriptor.operations)} operation(s) ready; {_truncate(meta.method_name if meta else 'method metadata pending')}"
-        )
-    elif _is_builder(mode) and meta:
-        st.caption("Registry metadata available below for debugging.")
+        descriptor = modules[selected_module]
+        meta = metadata_map.get(descriptor.module_id)
 
-    st.write(descriptor.description or "No description provided.")
-    if meta and not is_lab():
-        st.markdown(f"_Method:_ {meta.method_name}")
-        st.markdown(f"_Citation:_ {_truncate(meta.primary_citation)}")
-        st.markdown(f"_Limitations:_ {_truncate(meta.limitations)}")
-    if descriptor.operations:
-        st.markdown("Operations")
-        for op in descriptor.operations.values():
-            st.markdown(f"- `{op.name}` — {op.description}")
-        st.button(
-            "Run (coming soon)",
-            disabled=True,
-            help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
-        )
-    else:
-        st.write("_No operations registered._")
+        st.markdown(f"**Active module:** `{descriptor.module_id}` (v{descriptor.version})")
+        if meta and is_learner():
+            st.info(
+                f"{meta.display_name}: {meta.method_name}. {_truncate(meta.primary_citation)}"
+            )
+        elif is_lab():
+            show_lab_mode_note(
+                f"{len(descriptor.operations)} operation(s) ready; {_truncate(meta.method_name if meta else 'method metadata pending')}"
+            )
+        elif _is_builder(mode) and meta:
+            st.caption("Registry metadata available below for debugging.")
 
-    if descriptor.module_id == "pchem.calorimetry":
-        _render_pchem_calorimetry_runner(metadata_registry, mode)
+        st.write(descriptor.description or "No description provided.")
+        if meta and not is_lab():
+            st.markdown(f"_Method:_ {meta.method_name}")
+            st.markdown(f"_Citation:_ {_truncate(meta.primary_citation)}")
+            st.markdown(f"_Limitations:_ {_truncate(meta.limitations)}")
+        if descriptor.operations:
+            st.markdown("Operations")
+            for op in descriptor.operations.values():
+                st.markdown(f"- `{op.name}` — {op.description}")
+            st.button(
+                "Run (coming soon)",
+                disabled=True,
+                help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
+            )
+        else:
+            st.write("_No operations registered._")
+
+        if descriptor.module_id == "pchem.calorimetry":
+            _render_pchem_calorimetry_runner(metadata_registry, mode)
 
     if _is_builder(mode):
         st.markdown("#### Debug payloads")
@@ -1043,7 +1054,7 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
 
 
 def _render_audit_log(events: Sequence[dict[str, object]], mode: str) -> None:
-    st.subheader("Audit Log")
+    section_header("Audit Log", "Who did what and when—mode aware summaries included.", icon="📜")
     if _is_learner(mode):
         st.info("Audit entries show who did what, when, and why. These logs anchor ALCOA+ compliance.")
     if not events:
