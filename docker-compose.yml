@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  labos:
+    container_name: labos-dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: labos-dev:latest
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/labos
+    environment:
+      - LABOS_USE_STORE=1
+    command: /bin/bash -lc "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"

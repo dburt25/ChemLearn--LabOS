@@ -37,6 +37,22 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
    streamlit run app.py
    ```
 
+## Container workflow
+- **Build the image** (run from the repo root):
+   ```bash
+   docker build -t labos-dev .
+   ```
+- **Run ad-hoc commands** inside a container (shell by default, pass another command to run Streamlit or tests):
+   ```bash
+   ./scripts/docker-run.sh "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
+   ```
+   The helper script rebuilds the image, mounts the repo into `/labos`, forwards port `8501`, and executes the provided command.
+- **Use Docker Compose** to boot the Streamlit UI directly:
+   ```bash
+   docker compose up --build
+   ```
+   Compose maps port `8501` and watches the local workspace through a bind mount, so code edits are reflected on refresh. Use `docker compose down` to stop the container.
+
 ## CLI usage
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
 - Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
