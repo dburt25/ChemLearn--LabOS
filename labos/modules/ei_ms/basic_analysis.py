@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
+import math
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
@@ -45,6 +46,42 @@ def _normalize_fragment_masses(fragments: Sequence[Any] | None) -> list[float]:
         except (TypeError, ValueError):
             continue
     return normalized
+
+
+def _normalize_spectrum_entries(spectrum: Sequence[Any] | None) -> tuple[list[float], list[float]]:
+    if not spectrum:
+        return ([], [])
+
+    masses: list[float] = []
+    intensities: list[float] = []
+    for entry in spectrum:
+        mz_value: Any
+        intensity_value: Any
+        if isinstance(entry, Mapping):
+            mz_value = entry.get("mz") or entry.get("m/z") or entry.get("mass")
+            intensity_value = entry.get("intensity")
+        elif isinstance(entry, Sequence) and not isinstance(entry, (str, bytes, bytearray)):
+            if len(entry) < 2:
+                raise ValueError("Spectrum tuples must include m/z and intensity.")
+            mz_value, intensity_value = entry[0], entry[1]
+        else:
+            raise ValueError("Spectrum entries must be mappings or (m/z, intensity) tuples.")
+
+        try:
+            mz_float = float(mz_value)
+            intensity_float = float(intensity_value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive path
+            raise ValueError(f"Spectrum entries must contain numeric m/z and intensity: {exc}")
+
+        if not math.isfinite(mz_float) or mz_float <= 0:
+            raise ValueError("m/z values must be positive and finite.")
+        if not math.isfinite(intensity_float) or intensity_float < 0:
+            raise ValueError("Intensities must be non-negative and finite.")
+
+        masses.append(mz_float)
+        intensities.append(intensity_float)
+
+    return masses, intensities
 
 
 def _normalize_intensities(
@@ -109,11 +146,32 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
     """
 
     payload = dict(params or {})
+    spectrum_masses: list[float] = []
+    spectrum_intensities: list[float] = []
+    if "spectrum" in payload:
+        spectrum_masses, spectrum_intensities = _normalize_spectrum_entries(payload.get("spectrum"))
+
     precursor_mass = float(payload.get("precursor_mass", 0.0))
-    fragment_masses = _normalize_fragment_masses(payload.get("fragment_masses"))
+    if not math.isfinite(precursor_mass) or precursor_mass <= 0:
+        raise ValueError("precursor_mass must be positive and finite.")
+
+    fragment_masses = _normalize_fragment_masses(payload.get("fragment_masses")) or spectrum_masses
+    if not fragment_masses:
+        raise ValueError("fragment_masses must include at least one m/z value.")
+    for mass in fragment_masses:
+        if not math.isfinite(mass) or mass <= 0:
+            raise ValueError("fragment_masses entries must be positive and finite.")
+
     intensities = _normalize_intensities(
-        payload.get("fragment_intensities"), len(fragment_masses), precursor_mass, fragment_masses
+        payload.get("fragment_intensities") or spectrum_intensities,
+        len(fragment_masses),
+        precursor_mass,
+        fragment_masses,
     )
+    for intensity in intensities:
+        if not math.isfinite(intensity) or intensity < 0:
+            raise ValueError("fragment_intensities must be non-negative and finite.")
+
     annotations = payload.get("annotations") or {}
 
     fragments: list[dict[str, Any]] = []
