@@ -1,4 +1,7 @@
-"""Phase 2 EI-MS fragmentation educational stub (deterministic metadata only)."""
+"""Phase 2 EI-MS fragmentation educational stub (deterministic metadata only).
+
+LEGACY shim; prefer ``ei_ms.basic_analysis``.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +9,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
+from labos.modules.ei_ms.basic_analysis import run_basic_analysis
 
 MODULE_KEY = "eims.fragmentation"
 MODULE_VERSION = "0.2.0"
@@ -13,7 +17,12 @@ DESCRIPTION = "ChemLearn EI-MS fragmentation stub that emits dataset/audit place
 
 
 def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
-    """Return deterministic EI-MS metadata for educational demos (no real spectra)."""
+    """Return deterministic EI-MS metadata for educational demos (no real spectra).
+
+    This wrapper forwards spectrum analysis to ``ei_ms.basic_analysis`` while
+    retaining the legacy dataset/audit envelope expected by older tests and
+    integrations.
+    """
 
     payload = dict(params or {})
     precursor_mz = float(payload.get("precursor_mz", 250.0))
@@ -21,6 +30,15 @@ def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
     actor = str(payload.get("actor", "labos.stub"))
     experiment_id = str(payload.get("experiment_id", "EXP-STUB"))
     run_token = uuid4().hex[:8].upper()
+
+    analysis = run_basic_analysis(
+        {
+            "precursor_mass": precursor_mz,
+            "fragment_masses": payload.get("fragment_masses"),
+            "fragment_intensities": payload.get("fragment_intensities"),
+            "annotations": payload.get("annotations"),
+        }
+    ).to_dict()
 
     dataset = {
         "id": f"DS-EIMS-{int(round(precursor_mz))}-{run_token}",
@@ -32,6 +50,7 @@ def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
             "precursor_mz": precursor_mz,
             "collision_energy": collision_energy,
             "stub": True,
+            "analysis_summary": analysis["summary"],
         },
     }
 
@@ -52,9 +71,10 @@ def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
         "module_key": MODULE_KEY,
         "dataset": dataset,
         "audit": audit,
-        "status": "not-implemented",
+        "status": analysis.get("status", "not-implemented"),
         "message": "EI-MS fragmentation placeholder output for demos only.",
         "inputs": payload,
+        "analysis": analysis,
     }
 
 
