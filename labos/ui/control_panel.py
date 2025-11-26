@@ -33,7 +33,15 @@ from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
-from labos.ui.components import mode_badge, section_block, section_header, spaced_columns, subtle_divider, title_block
+from labos.ui.components import (
+    mode_badge,
+    render_method_footer,
+    section_block,
+    section_header,
+    spaced_columns,
+    subtle_divider,
+    title_block,
+)
 from labos.ui.workspace import render_workspace
 from labos.ui.provenance_footer import render_method_and_data_footer
 
@@ -301,6 +309,9 @@ def render_method_and_data_panel(meta: ModuleMetadata | None, dataset_id: str | 
         show_calorimetry_method_snippet(meta, dataset_id)
     else:
         show_method_metadata(meta)
+
+    module_key = meta.key if meta else "pchem.calorimetry"
+    render_method_footer(module_key, meta)
 
 
 def render_debug_toggle(label: str, key: str, payload: Mapping[str, object] | Sequence[Mapping[str, object]] | None) -> None:
@@ -1063,6 +1074,8 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
 
             if descriptor.module_id == "pchem.calorimetry":
                 _render_pchem_calorimetry_runner(metadata_registry, mode)
+
+        render_method_footer(descriptor.module_id, meta)
 
         if is_builder(mode):
             st.markdown("#### Debug payloads")
