@@ -169,6 +169,25 @@ def _generate_experiment_id() -> str:
     return f"exp-{timestamp}"
 
 
+def _run_module_from_ui(
+    module_key: str,
+    params: Mapping[str, object] | None,
+    *,
+    operation: str = "compute",
+    experiment_name: str | None = None,
+    actor: str | None = None,
+) -> WorkflowResult:
+    """Thin wrapper to invoke workflow jobs from UI callbacks."""
+
+    return run_module_job(
+        module_key=module_key,
+        operation=operation,
+        params=dict(params or {}),
+        actor=actor or "labos.ui",
+        experiment_name=experiment_name,
+    )
+
+
 def _mode_tip(section: str) -> str:
     profile = MODE_PROFILES.get(st.session_state.mode, MODE_PROFILES[MODES[0]])
     fallback = MODE_PROFILES[MODES[0]]
@@ -320,6 +339,41 @@ def show_ei_ms_explanation() -> None:
             "Electron ionization mass spectrometry breaks molecules into fragments and plots their intensities against"
             " mass-to-charge (m/z). The resulting spectrum is the pattern of peaks you read to spot likely compounds."
         )
+
+
+def _parse_float_list(text: str) -> list[float]:
+    """Convert comma-separated or JSON list inputs into floats."""
+
+    cleaned = text.strip()
+    if not cleaned:
+        return []
+    try:
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, Sequence):
+            return [float(item) for item in parsed if isinstance(item, (int, float, str))]
+    except json.JSONDecodeError:
+        pass
+
+    parts = [part.strip() for part in cleaned.replace("\n", ",").split(",") if part.strip()]
+    floats: list[float] = []
+    for part in parts:
+        try:
+            floats.append(float(part))
+        except ValueError:
+            continue
+    return floats
+
+
+def _parse_annotations(text: str) -> dict[str, object]:
+    if not text.strip():
+        return {}
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, Mapping):
+            return {str(key): value for key, value in parsed.items()}
+    except json.JSONDecodeError:
+        return {}
+    return {}
 
 
 def show_method_metadata(meta: Optional[ModuleMetadata]) -> None:
@@ -1289,9 +1343,9 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         st.session_state.pchem_default_experiment = experiment_name
         with st.spinner("Executing calorimetry stub..."):
             try:
-                result = run_module_job(
-                    module_key="pchem.calorimetry",
-                    params={
+                result = _run_module_from_ui(
+                    "pchem.calorimetry",
+                    {
                         "sample_id": sample_id,
                         "delta_t": float(delta_t),
                         "heat_capacity": float(heat_capacity),
@@ -1319,6 +1373,107 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
 
         if payload:
             _render_calorimetry_results(payload, meta, mode)
+
+
+def _render_ei_ms_results(result: WorkflowResult, mode: str) -> None:
+    dataset_id = result.dataset.id if result.dataset else "dataset-pending"
+    st.success(f"EI-MS job {result.job.id} completed; dataset {dataset_id} recorded.")
+
+    module_output = cast(Mapping[str, object], result.module_output or {})
+    fragments = module_output.get("fragments")
+    if isinstance(fragments, Sequence):
+        fragment_rows = []
+        for fragment in fragments:
+            if not isinstance(fragment, Mapping):
+                continue
+            fragment_rows.append(
+                {
+                    "Mass (m/z)": fragment.get("mass"),
+                    "Relative Intensity": fragment.get("relative_intensity"),
+                    "Classification": fragment.get("classification"),
+                    "Annotation": fragment.get("annotation", "—"),
+                }
+            )
+        if fragment_rows:
+            st.dataframe(fragment_rows, use_container_width=True, hide_index=True)
+    summary = module_output.get("summary")
+    if isinstance(summary, Mapping):
+        neutral_losses = summary.get("neutral_losses")
+        if isinstance(neutral_losses, Sequence) and neutral_losses:
+            st.markdown("**Neutral loss suggestions**")
+            st.dataframe(neutral_losses, use_container_width=True, hide_index=True)
+
+    if is_builder(mode):
+        render_debug_toggle(
+            "Show EI-MS raw output", key="ei_ms_output_debug", payload=module_output or {"message": "No output"}
+        )
+
+
+def _render_ei_ms_runner(meta_registry: MetadataRegistry, mode: str) -> None:
+    meta = meta_registry.get("ei_ms.basic_analysis")
+
+    st.markdown("#### Run EI-MS basic analysis")
+    if is_learner(mode):
+        show_ei_ms_explanation()
+    elif is_lab(mode):
+        show_lab_mode_note("Enter masses and run the workflow to tag fragments.")
+    elif meta:
+        st.caption(f"Method: {meta.method_name}")
+
+    default_name = st.session_state.get("ei_ms_default_experiment") or "EI-MS walkthrough"
+
+    with st.form("ei_ms_basic_analysis", clear_on_submit=False):
+        experiment_name = st.text_input("Experiment Name", value=default_name, key="ei_ms_experiment_name")
+        precursor_mass = st.number_input("Precursor mass (m/z)", value=180.16, step=0.01)
+        fragment_masses_raw = st.text_area(
+            "Fragment masses (comma-separated or JSON list)",
+            value="15, 28, 43, 57, 71",
+            help="Provide fragment m/z values to analyze.",
+        )
+        fragment_intensities_raw = st.text_area(
+            "Fragment intensities (optional)",
+            value="100, 75, 60, 40, 20",
+            help="Optional relative intensities to improve tagging.",
+        )
+        annotations_raw = st.text_area(
+            "Annotations (JSON mapping, optional)",
+            value="{\"43\": \"base peak\"}",
+            help="Map m/z values to labels such as base peaks or known fragments.",
+        )
+        actor = st.text_input("Actor", value="lab-operator", key="ei_ms_actor")
+        submitted = st.form_submit_button("Run EI-MS analysis", use_container_width=True)
+
+    if submitted:
+        st.session_state.ei_ms_default_experiment = experiment_name
+        fragment_masses = _parse_float_list(fragment_masses_raw)
+        intensities = _parse_float_list(fragment_intensities_raw)
+        annotations = _parse_annotations(annotations_raw)
+
+        params: dict[str, object] = {
+            "precursor_mass": float(precursor_mass),
+            "fragment_masses": fragment_masses,
+        }
+        if intensities:
+            params["fragment_intensities"] = intensities
+        if annotations:
+            params["annotations"] = annotations
+
+        with st.spinner("Running EI-MS workflow..."):
+            try:
+                result = _run_module_from_ui(
+                    "ei_ms.basic_analysis",
+                    params,
+                    operation="analyze",
+                    experiment_name=experiment_name,
+                    actor=actor,
+                )
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                st.error(f"EI-MS analysis failed: {exc}")
+                if is_builder(mode):
+                    with st.expander("Show traceback", expanded=False):
+                        st.code(traceback.format_exc())
+            else:
+                _render_ei_ms_results(result, mode)
 
 
 def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistry, mode: str) -> None:
@@ -1398,6 +1553,8 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
                 _render_spectroscopy_stub_panel(metadata_registry, mode)
             elif descriptor.module_id == "pchem.calorimetry":
                 _render_pchem_calorimetry_runner(metadata_registry, mode)
+            elif descriptor.module_id == "ei_ms.basic_analysis":
+                _render_ei_ms_runner(metadata_registry, mode)
             else:
                 st.button(
                     "Run (coming soon)",
