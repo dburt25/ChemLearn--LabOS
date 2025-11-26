@@ -1,5 +1,5 @@
 # Swarm Status – ChemLearn LabOS
-This document summarizes where the bot swarm left LabOS: current phase, shipped surfaces, remaining Phase 2 work, and how to scope new agents safely.
+This document summarizes where the bot swarm left LabOS: current phase, shipped surfaces, remaining Phase 2 work, and how to scope new agents safely. For a concise view of what is runnable today, see [`CURRENT_CAPABILITIES.md`](./CURRENT_CAPABILITIES.md).
 
 ## Current Phase
 **Phase:** 2.5 – Working Lab Skeleton (file-backed registries, CLI job runner, educational modules, Streamlit control panel)
