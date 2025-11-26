@@ -37,6 +37,10 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
    streamlit run app.py
    ```
 
+## CLI usage
+- Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
+- Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
+
 ## Key documentation
 - Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
