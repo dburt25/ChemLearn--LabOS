@@ -29,6 +29,11 @@ Use this checklist to keep documentation aligned with governance, provenance, an
 - [ ] Include limitations, uncertainties, and intended-use statements in user-facing docs.
 - [ ] Flag any outputs that rely on unvalidated assumptions or simulated data.
 
+## UI & User Data Security
+- [ ] Sanitize and encode user inputs before rendering in UI components or persisting to logs/storage.
+- [ ] Reject or neutralize unsafe content (scripts, embedded HTML, serialized objects) in uploads and free-text fields.
+- [ ] Avoid `eval`/`exec` or other dynamic execution of user-derived strings; use constrained parsers instead.
+
 ## Auditability
 - [ ] Maintain chain-of-custody via AuditEvent checksums and timestamps.
 - [ ] Store reviewer notes and validation evidence in VALIDATION_LOG.md and compliance-notes.md.

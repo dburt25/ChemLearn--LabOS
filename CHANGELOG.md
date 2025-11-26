@@ -5,6 +5,8 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ## [Unreleased]
 ### Added
 - Documented the P-Chem and EI-MS stub expansions, workflow helper coverage, mode-aware UI surfaces, and accompanying test posture updates.
+- Added internal runtime usage guide covering the LabOSRuntime facade for experiments, datasets, and module operations.
+- Added a CLI usage guide and README pointers covering both persistent and demo commands.
 ### Changed
 - Phase 2 – Wave 2: import wizard + provenance helpers now link stub outputs into job/dataset/audit chains.
 - Phase 2.5+: refreshed developer-facing docs (README, Development Guide, swarm status, modularity) to match the current runnable core, CLI, and UI surface.
@@ -69,3 +71,9 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Phase 2 – Wave 2 UI updates: Jobs table shows linked dataset previews and audit context, and Datasets table surfaces schema/module hints with mode-aware explanations.
 - Method & Data footer now renders ModuleMetadata alongside recent audits with learner/lab/builder-specific messaging.
 - Disabled Run buttons and TODO hooks placed near module and job controls in preparation for execution wiring.
+
+## [0.2.3] - 2026-03-06
+### Added
+- Added `docs/SECURITY_NOTES.md` with UI input sanitization, unsafe content handling, and anti-eval guidance for user data paths.
+- Expanded compliance checklists to track UI/user-data security controls alongside existing safety boundaries.
+- Logged the security documentation update in compliance-notes and validation records.
