@@ -4,6 +4,7 @@ Document scientific validation activities once numerical or analytical logic shi
 
 | Date (UTC) | Component | Change Summary | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-14T00:00:00Z | Telemetry logging | Added pytest coverage ensuring `log_event` serializes JSONL output without touching the filesystem and accumulates repeated calls in memory. | `python -m pytest tests/test_telemetry_logging.py` |
 | 2026-03-07T00:00:00Z | Mode helper predicates | Added regression tests for mode resolution defaults and explicit mode overrides in control panel helpers. | `python -m pytest tests/test_ui_mode_helpers.py` |
 | 2026-03-06T00:00:00Z | Security docs | Added UI input sanitization, unsafe content handling, and anti-eval guidance to security notes and compliance checklists. | Documentation review |
 | 2025-11-25T23:37:01Z | Storage layer | Added unit tests for in-memory dataset, experiment, and job stores and confirmed job linkage stays disabled without an experiment store. | `PYTHONDONTWRITEBYTECODE=1 pytest tests/test_storage_in_memory.py` |
