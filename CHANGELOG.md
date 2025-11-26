@@ -70,3 +70,9 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Phase 2 – Wave 2 UI updates: Jobs table shows linked dataset previews and audit context, and Datasets table surfaces schema/module hints with mode-aware explanations.
 - Method & Data footer now renders ModuleMetadata alongside recent audits with learner/lab/builder-specific messaging.
 - Disabled Run buttons and TODO hooks placed near module and job controls in preparation for execution wiring.
+
+## [0.2.3] - 2026-03-06
+### Added
+- Added `docs/SECURITY_NOTES.md` with UI input sanitization, unsafe content handling, and anti-eval guidance for user data paths.
+- Expanded compliance checklists to track UI/user-data security controls alongside existing safety boundaries.
+- Logged the security documentation update in compliance-notes and validation records.
