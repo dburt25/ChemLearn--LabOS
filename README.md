@@ -44,6 +44,7 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - Phase/state snapshots: [`docs/SWARM_STATUS.md`](docs/SWARM_STATUS.md), [`docs/PHASES_OVERVIEW.md`](docs/PHASES_OVERVIEW.md)
 - Swarm governance & permissions: [`docs/SWARM_GOVERNANCE.md`](docs/SWARM_GOVERNANCE.md), [`docs/BOT_PERMISSIONS_MATRIX.md`](docs/BOT_PERMISSIONS_MATRIX.md)
 - Compliance and provenance: [`docs/COMPLIANCE_CHECKLIST.md`](docs/COMPLIANCE_CHECKLIST.md), [`docs/METHOD_AND_DATA.md`](docs/METHOD_AND_DATA.md), [`docs/AUDIT_LOG_FORMAT.md`](docs/AUDIT_LOG_FORMAT.md)
+- Notebook onboarding: [`docs/quickstart_notebook.md`](docs/quickstart_notebook.md)
 
 ## Notes
 - Modules can also be auto-discovered via `LABOS_MODULES` (comma-separated import paths) when you want to load external plugins.
