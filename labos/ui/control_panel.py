@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, TypeVar, TypedDict, cast
@@ -226,6 +227,19 @@ def _resolve_mode(mode: str | None = None) -> str:
     if isinstance(current, str) and current:
         return current
     return MODES[0]
+
+
+def _validate_text_fields(field_values: Mapping[str, str]) -> str | None:
+    for field, value in field_values.items():
+        if not str(value).strip():
+            return f"{field} is required before running this workflow."
+    return None
+
+
+def _validate_finite_number(value: float, label: str) -> str | None:
+    if value is None or not math.isfinite(value):
+        return f"{label} must be a valid number."
+    return None
 
 
 def is_learner(mode: str | None = None) -> bool:
@@ -560,6 +574,17 @@ def _render_nmr_stub_form(mode: str) -> None:
         submitted = st.form_submit_button("Run NMR stub", use_container_width=True)
 
     if submitted:
+        error_message = _validate_text_fields(
+            {
+                "Experiment name": experiment_name,
+                "Sample ID": sample_id,
+                "Chemical formula": chemical_formula,
+                "Actor": actor,
+            }
+        )
+        if error_message:
+            st.error(error_message)
+            return
         peak_entry: NMRPeak = {
             "shift_ppm": shift_ppm,
             "intensity": intensity,
@@ -614,6 +639,17 @@ def _render_ir_stub_form(mode: str) -> None:
         submitted = st.form_submit_button("Run IR stub", use_container_width=True)
 
     if submitted:
+        error_message = _validate_text_fields(
+            {
+                "Experiment name": experiment_name,
+                "Sample ID": sample_id,
+                "Chemical formula": chemical_formula,
+                "Actor": actor,
+            }
+        )
+        if error_message:
+            st.error(error_message)
+            return
         peak_entry: IRPeak = {
             "wavenumber_cm_1": wavenumber,
             "intensity": intensity,
@@ -1351,6 +1387,20 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
 
     if submitted:
         st.session_state.pchem_default_experiment = experiment_name
+        error_message = _validate_text_fields(
+            {
+                "Experiment Name": experiment_name,
+                "Sample ID": sample_id,
+                "Actor": actor,
+            }
+        )
+        if not error_message:
+            error_message = _validate_finite_number(delta_t, "Delta T") or _validate_finite_number(
+                heat_capacity, "Heat Capacity"
+            )
+        if error_message:
+            st.error(error_message)
+            return
         with st.spinner("Executing calorimetry stub..."):
             try:
                 result = _run_module_from_ui(
