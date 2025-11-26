@@ -1,128 +1,156 @@
-"""Unified CLI entrypoint for LabOS (Phase 2 demo commands).
+"""Minimal LabOS CLI for creating experiments and running jobs.
 
-This module intentionally keeps operations in-memory and focuses on
-educational output that mirrors the core data structures without
-persisting any state.
+This entry point is intentionally small and only surfaces the most
+common workflow helpers. It bridges to the workflow layer so that
+experiments and module jobs share the same identifiers and lineage
+as other LabOS integrations.
+
+Examples
+--------
+Create a new experiment record (identifiers are auto-generated)::
+
+    labos experiment create --name "Kinetic sweep"
+
+Run a module operation and capture its workflow result::
+
+    labos job run --module demo.calorimetry --params '{"temp": 298}'
+
+Both commands print JSON payloads that mirror the workflow models for
+quick scripting or debugging.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import textwrap
-from datetime import datetime
-from enum import Enum
 from typing import Any, Dict
 
-from labos.core import ModuleRegistry, Experiment, create_experiment_with_job
+from labos.core import create_experiment, run_module_job
+from labos.core.experiments import ExperimentMode, ExperimentStatus
 
 
-def _serialize_value(value: Any) -> Any:
-    """Convert enums and datetimes to JSON-friendly representations."""
-
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, list):
-        return [_serialize_value(item) for item in value]
-    if isinstance(value, dict):
-        return {key: _serialize_value(val) for key, val in value.items()}
-    return value
+def _json_dumps(payload: Dict[str, Any]) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True)
 
 
-def _normalize_record(record: Dict[str, Any]) -> Dict[str, Any]:
-    return {key: _serialize_value(val) for key, val in record.items()}
+def _parse_metadata(value: str | None) -> Dict[str, Any]:
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:  # pragma: no cover - CLI validation
+        raise argparse.ArgumentTypeError(f"Invalid JSON for metadata: {exc}")
+    if not isinstance(parsed, dict):
+        raise argparse.ArgumentTypeError("Metadata JSON must decode to an object")
+    return parsed
 
 
-def _handle_modules(_: argparse.Namespace) -> int:
-    registry = ModuleRegistry.with_phase0_defaults()
-    modules = registry.all()
-
-    if not modules:
-        print("No modules registered yet. This demo is safe to rerun.")
-        return 0
-
-    print("Registered modules (demo view):")
-    for meta in sorted(modules, key=lambda m: m.key):
-        print(f"- {meta.key}")
-        print(f"  Display: {meta.display_name}")
-        print(
-            "  Method: "
-            + textwrap.shorten(meta.method_name, width=60, placeholder="…")
-        )
-        print(
-            "  Limitations: "
-            + textwrap.shorten(meta.limitations, width=80, placeholder="…")
-        )
-        print()
-    return 0
+def _parse_params(value: str | None) -> Dict[str, Any]:
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:  # pragma: no cover - CLI validation
+        raise argparse.ArgumentTypeError(f"Invalid JSON for params: {exc}")
+    if not isinstance(parsed, dict):
+        raise argparse.ArgumentTypeError("Params JSON must decode to an object")
+    return parsed
 
 
-def _handle_experiments(_: argparse.Namespace) -> int:
-    print("Demo experiments only – no persistence yet.")
-    demos = [
-        Experiment.example(1, mode="Learner"),
-        Experiment.example(2, mode="Lab"),
-        Experiment.example(3, mode="Builder"),
-    ]
-    for exp in demos:
-        payload = _normalize_record(exp.to_dict())
-        print(json.dumps(payload, indent=2))
-    return 0
-
-
-def _handle_demo_job(_: argparse.Namespace) -> int:
-    print("Running in-memory demo: creating an Experiment and Job without persistence.")
-    experiment, job = create_experiment_with_job(
-        experiment_id="EXP-DEM-001",
-        experiment_name="Demo Experiment",
-        job_id="JOB-DEM-001",
-        job_kind="demo.module:noop",
-        owner="demo-user",
-        mode="Learner",
-        experiment_metadata={"note": "Phase 2 demo only"},
-        job_params={"demo": True, "purpose": "show workflow wiring"},
-        job_datasets_in=["DS-DEMO-INPUT"],
+def _handle_experiment_create(args: argparse.Namespace) -> int:
+    experiment = create_experiment(
+        name=args.name,
+        owner=args.owner,
+        mode=args.mode,
+        status=args.status,
+        metadata=_parse_metadata(args.metadata),
     )
-
-    job.start()
-    job.finish(success=True, outputs=["DS-DEMO-OUTPUT"], error=None)
-    experiment.mark_completed()
-
-    print("Experiment record:")
-    print(json.dumps(_normalize_record(experiment.to_dict()), indent=2))
-    print("\nJob record:")
-    print(json.dumps(_normalize_record(job.to_dict()), indent=2))
+    print(_json_dumps(experiment.to_dict()))
     return 0
+
+
+def _handle_job_run(args: argparse.Namespace) -> int:
+    params = _parse_params(args.params)
+    result = run_module_job(
+        module_key=args.module,
+        operation=args.operation,
+        params=params,
+        actor=args.actor,
+        experiment_name=args.experiment_name,
+        experiment_owner=args.experiment_owner,
+        experiment_mode=args.experiment_mode,
+    )
+    print(_json_dumps(result.to_dict()))
+    return 0 if result.succeeded() else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Unified LabOS CLI (Phase 2 demo). Commands are educational only and do not "
-            "persist state."
-        )
-    )
+    parser = argparse.ArgumentParser(description="LabOS CLI for experiments and jobs")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    modules_parser = subparsers.add_parser(
-        "modules",
-        help="List registered module metadata from the in-memory registry.",
-    )
-    modules_parser.set_defaults(func=_handle_modules)
+    exp_parser = subparsers.add_parser("experiment", help="Experiment related commands")
+    exp_sub = exp_parser.add_subparsers(dest="experiment_command", required=True)
 
-    experiments_parser = subparsers.add_parser(
-        "experiments",
-        help="Show demo experiments (non-persistent examples).",
+    exp_create = exp_sub.add_parser("create", help="Create a new experiment record")
+    exp_create.add_argument("--name", required=True, help="Human-friendly experiment name")
+    exp_create.add_argument(
+        "--owner",
+        default="cli-user",
+        help="Owner identifier for the experiment",
     )
-    experiments_parser.set_defaults(func=_handle_experiments)
+    exp_create.add_argument(
+        "--mode",
+        choices=[mode.value for mode in ExperimentMode],
+        default=ExperimentMode.LAB.value,
+        help="Experiment mode",
+    )
+    exp_create.add_argument(
+        "--status",
+        choices=[status.value for status in ExperimentStatus],
+        default=ExperimentStatus.DRAFT.value,
+        help="Initial experiment status",
+    )
+    exp_create.add_argument(
+        "--metadata",
+        help="Optional JSON object to attach to experiment metadata",
+    )
+    exp_create.set_defaults(func=_handle_experiment_create)
 
-    demo_job_parser = subparsers.add_parser(
-        "demo-job",
-        help="Create an in-memory experiment+job pair and display their fields.",
+    job_parser = subparsers.add_parser("job", help="Job and module execution commands")
+    job_sub = job_parser.add_subparsers(dest="job_command", required=True)
+
+    job_run = job_sub.add_parser("run", help="Run a module operation as a job")
+    job_run.add_argument("--module", required=True, help="Registered module key")
+    job_run.add_argument(
+        "--operation",
+        default="compute",
+        help="Operation name exposed by the module",
     )
-    demo_job_parser.set_defaults(func=_handle_demo_job)
+    job_run.add_argument(
+        "--params",
+        help="JSON object with parameters passed to the module operation",
+    )
+    job_run.add_argument(
+        "--actor",
+        default="labos.cli",
+        help="Actor string recorded on audit events",
+    )
+    job_run.add_argument(
+        "--experiment-name",
+        help="Override the auto-generated experiment name for the run",
+    )
+    job_run.add_argument(
+        "--experiment-owner",
+        default="cli-user",
+        help="Owner assigned to the experiment if created implicitly",
+    )
+    job_run.add_argument(
+        "--experiment-mode",
+        choices=[mode.value for mode in ExperimentMode],
+        default=ExperimentMode.LAB.value,
+        help="Mode applied when creating the experiment",
+    )
+    job_run.set_defaults(func=_handle_job_run)
 
     return parser
 
@@ -132,9 +160,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
-    except Exception as exc:  # pragma: no cover - CLI friendly error handling
-        print(f"Error: {exc}")
-        return 1
+    except Exception as exc:  # pragma: no cover - CLI friendly errors
+        parser.error(str(exc))
+    return 1
 
 
 if __name__ == "__main__":
