@@ -77,21 +77,30 @@ class ModuleRegistry:
         for meta in entries:
             self.register(meta)
 
-    def get_metadata(self, key: str) -> ModuleMetadata:
+    def get_metadata(self, key: str) -> Optional[ModuleMetadata]:
+        """Return metadata for ``key`` when present, otherwise ``None``.
+
+        This is the primary lookup used by UI footers so callers do not need
+        to access the private ``_modules`` mapping directly.
+        """
+
+        return self._modules.get(key)
+
+    def get_metadata_required(self, key: str) -> ModuleMetadata:
         """Return metadata for ``key`` or raise ``NotFoundError`` if missing."""
 
-        try:
-            return self._modules[key]
-        except KeyError as exc:
+        meta = self.get_metadata(key)
+        if meta is None:
             available_keys = ", ".join(sorted(self._modules)) or "<none>"
             raise NotFoundError(
                 f"Module metadata not found for key {key!r}. Available keys: {available_keys}"
-            ) from exc
+            )
+        return meta
 
     def get_metadata_optional(self, key: str) -> Optional[ModuleMetadata]:
-        """Return metadata for ``key`` when present, otherwise ``None``."""
+        """Compatibility alias for :meth:`get_metadata`."""
 
-        return self._modules.get(key)
+        return self.get_metadata(key)
 
     # Compatibility aliases used by early-phase tests/clients
     def get(self, key: str) -> Optional[ModuleMetadata]:
@@ -176,6 +185,21 @@ class ModuleRegistry:
                     category="pchem",
                 ),
                 ModuleMetadata(
+                    key="pchem.ideal_gas",
+                    display_name="P-Chem Ideal Gas",
+                    method_name="PV = nRT solver",
+                    primary_citation=(
+                        "See CITATIONS.md (P-Chem / Thermodynamics / Ideal gas law placeholder)."
+                    ),
+                    dataset_citations=["Analytical ideal gas calculations; no datasets consumed."],
+                    limitations=(
+                        "Educational stub with single-unknown solver and basic unit conversions."
+                    ),
+                    reference_url="https://doi.org/10.0000/placeholder-ideal-gas",
+                    version="0.2.0",
+                    category="pchem",
+                ),
+                ModuleMetadata(
                     key="eims.fragmentation",
                     display_name="EI-MS Fragmentation Engine",
                     method_name="Rule-based + ML-augmented EI fragmentation",
@@ -184,6 +208,19 @@ class ModuleRegistry:
                     limitations="Educational and development only. Not validated for clinical use.",
                     reference_url="https://doi.org/10.0000/placeholder-eims",
                     version="0.1.0",
+                    category="mass-spectrometry",
+                ),
+                ModuleMetadata(
+                    key="ei_ms.basic_analysis",
+                    display_name="EI-MS Heuristic Analyzer",
+                    method_name="Heuristic EI-MS peak tagging",
+                    primary_citation="See CITATIONS.md (EI-MS / Heuristic analysis placeholder).",
+                    dataset_citations=["Stub uses caller-provided spectra; no bundled datasets."],
+                    limitations=(
+                        "Educational-only heuristics that do not simulate ionization or intensities."
+                    ),
+                    reference_url="https://doi.org/10.0000/placeholder-ei-ms-heuristic",
+                    version="0.2.0",
                     category="mass-spectrometry",
                 ),
                 ModuleMetadata(
@@ -199,6 +236,28 @@ class ModuleRegistry:
                     reference_url="https://doi.org/10.0000/placeholder-import",
                     version="0.1.0",
                     category="data-import",
+                ),
+                ModuleMetadata(
+                    key="spectroscopy.nmr",
+                    display_name="Spectroscopy – NMR",
+                    method_name="Stub NMR schema annotator",
+                    primary_citation="See CITATIONS.md (Spectroscopy / NMR placeholder).",
+                    dataset_citations=["Expects user-provided NMR peak lists; no bundled spectra."],
+                    limitations="Schema-focused placeholder with no spectral interpretation.",
+                    reference_url="https://doi.org/10.0000/placeholder-nmr",
+                    version="0.1.0",
+                    category="spectroscopy",
+                ),
+                ModuleMetadata(
+                    key="spectroscopy.ir",
+                    display_name="Spectroscopy – IR",
+                    method_name="Stub IR schema annotator",
+                    primary_citation="See CITATIONS.md (Spectroscopy / IR placeholder).",
+                    dataset_citations=["Expects user-provided IR band lists; no bundled spectra."],
+                    limitations="Schema-focused placeholder without vibrational assignments.",
+                    reference_url="https://doi.org/10.0000/placeholder-ir",
+                    version="0.1.0",
+                    category="spectroscopy",
                 ),
             ]
         )
