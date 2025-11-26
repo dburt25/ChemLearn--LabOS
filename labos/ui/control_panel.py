@@ -348,6 +348,23 @@ def render_debug_toggle(label: str, key: str, payload: Mapping[str, object] | Se
             st.json(list(payload or []))
 
 
+def _safe_parse_json_list(raw_text: str, *, fallback: Optional[Sequence[object]] = None) -> list[object]:
+    """Parse a JSON list from user input, returning a fallback if parsing fails."""
+
+    fallback_list = list(fallback or [])
+    if not raw_text.strip():
+        return fallback_list
+    try:
+        parsed = json.loads(raw_text)
+    except Exception:
+        st.warning("Unable to parse the provided list; using defaults instead.")
+        return fallback_list
+    if isinstance(parsed, list):
+        return list(parsed)
+    st.warning("Expected a JSON array; falling back to defaults.")
+    return fallback_list
+
+
 def show_json_restricted_message(entity: str) -> None:
     st.caption(f"Switch to Builder mode to view raw {entity} JSON.")
 
@@ -369,6 +386,166 @@ def show_calorimetry_raw_data(
         st.json(list(audit_payload or []))
     if st.checkbox("Show Module Metadata", key="calorimetry_show_metadata"):
         st.json(meta.to_dict() if meta else {"message": "No metadata found for pchem.calorimetry."})
+
+
+def _render_spectroscopy_stub_results(result: "WorkflowResult", mode: str, stub_kind: str) -> None:
+    dataset_id = result.dataset.id if result.dataset else "dataset-pending"
+    job_id = result.job.id
+    st.success(f"{stub_kind} stub job {job_id} completed; dataset {dataset_id} recorded.")
+
+    module_output = result.module_output or {}
+    annotated = cast(Sequence[object] | None, module_output.get("annotated_peaks"))
+    annotated_count = len(annotated) if isinstance(annotated, Sequence) else 0
+
+    if annotated_count and is_learner(mode):
+        st.info(
+            f"Captured {annotated_count} peak entries with placeholder annotations to illustrate spectroscopy schemas."
+        )
+    elif annotated_count:
+        st.caption(f"{annotated_count} peak entries echoed for verification.")
+
+    if is_builder(mode):
+        render_debug_toggle(
+            f"Show raw {stub_kind.lower()} stub output",
+            key=f"{stub_kind.lower()}_stub_output_{job_id}",
+            payload=module_output or {"message": "No module output returned."},
+        )
+    elif is_lab(mode):
+        show_lab_mode_note("Raw stub JSON stays tucked away in Lab mode; switch to Builder to inspect schemas.")
+
+
+def _render_nmr_stub_form(mode: str) -> None:
+    st.markdown("##### NMR stub")
+    default_peaks = [
+        {"shift_ppm": 7.12, "intensity": 0.8, "multiplicity": "d", "notes": "aromatic"},
+    ]
+    with st.form("spectroscopy_nmr_stub_form", clear_on_submit=False):
+        experiment_name = st.text_input("Experiment name", value="NMR stub experiment")
+        sample_id = st.text_input("Sample ID", value="NMR-SAMPLE")
+        chemical_formula = st.text_input("Chemical formula", value="C8H10N4O2")
+        nucleus = st.text_input("Nucleus", value="1H")
+        solvent = st.text_input("Solvent", value="CDCl3")
+        shift_ppm = st.number_input("Peak shift (ppm)", value=7.12, step=0.01)
+        intensity = st.number_input("Peak intensity", value=0.8, step=0.1)
+        multiplicity = st.text_input("Multiplicity", value="d")
+        notes = st.text_input("Peak notes", value="placeholder annotation")
+        extra_peaks_raw = st.text_area(
+            "Additional peaks (JSON list, optional)",
+            value="",
+            help="Provide an array of additional NMR peaks to include with the stub run.",
+        )
+        actor = st.text_input("Actor", value="lab-operator")
+        submitted = st.form_submit_button("Run NMR stub", use_container_width=True)
+
+    if submitted:
+        peak_entry = {
+            "shift_ppm": shift_ppm,
+            "intensity": intensity,
+            "multiplicity": multiplicity or None,
+            "notes": notes or None,
+        }
+        peaks = [peak_entry]
+        if extra_peaks_raw.strip():
+            peaks.extend(_safe_parse_json_list(extra_peaks_raw, fallback=default_peaks))
+        with st.spinner("Running spectroscopy.nmr_stub..."):
+            try:
+                result = run_module_job(
+                    module_key="spectroscopy",
+                    operation="nmr_stub",
+                    params={
+                        "sample_id": sample_id,
+                        "chemical_formula": chemical_formula,
+                        "nucleus": nucleus,
+                        "solvent": solvent,
+                        "peak_list": peaks,
+                    },
+                    actor=actor,
+                    experiment_name=experiment_name,
+                )
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                st.error(f"NMR stub failed: {exc}")
+            else:
+                _render_spectroscopy_stub_results(result, mode, "NMR")
+
+
+def _render_ir_stub_form(mode: str) -> None:
+    st.markdown("##### IR stub")
+    default_peaks = [
+        {"wavenumber_cm_1": 1710, "intensity": "strong", "assignment": "C=O stretch", "confidence": 0.6},
+    ]
+    with st.form("spectroscopy_ir_stub_form", clear_on_submit=False):
+        experiment_name = st.text_input("Experiment name (IR)", value="IR stub experiment")
+        sample_id = st.text_input("Sample ID (IR)", value="IR-SAMPLE")
+        chemical_formula = st.text_input("Chemical formula (IR)", value="C8H10N4O2")
+        wavenumber = st.number_input("Band position (cm^-1)", value=1710, step=5)
+        intensity = st.text_input("Band intensity", value="strong")
+        assignment = st.text_input("Assignment", value="carbonyl stretch")
+        confidence = st.number_input("Assignment confidence", value=0.6, min_value=0.0, max_value=1.0, step=0.05)
+        notes = st.text_input("Band notes", value="placeholder band")
+        extra_peaks_raw = st.text_area(
+            "Additional bands (JSON list, optional)",
+            value="",
+            help="Provide an array of extra IR bands to echo through the stub.",
+        )
+        actor = st.text_input("Actor (IR)", value="lab-operator")
+        submitted = st.form_submit_button("Run IR stub", use_container_width=True)
+
+    if submitted:
+        peak_entry = {
+            "wavenumber_cm_1": wavenumber,
+            "intensity": intensity,
+            "assignment": assignment or None,
+            "confidence": confidence,
+            "notes": notes or None,
+        }
+        peaks = [peak_entry]
+        if extra_peaks_raw.strip():
+            peaks.extend(_safe_parse_json_list(extra_peaks_raw, fallback=default_peaks))
+        with st.spinner("Running spectroscopy.ir_stub..."):
+            try:
+                result = run_module_job(
+                    module_key="spectroscopy",
+                    operation="ir_stub",
+                    params={
+                        "sample_id": sample_id,
+                        "chemical_formula": chemical_formula,
+                        "peak_list": peaks,
+                    },
+                    actor=actor,
+                    experiment_name=experiment_name,
+                )
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                st.error(f"IR stub failed: {exc}")
+            else:
+                _render_spectroscopy_stub_results(result, mode, "IR")
+
+
+def _render_spectroscopy_stub_panel(meta_registry: MetadataRegistry, mode: str) -> None:
+    meta = meta_registry.get("spectroscopy")
+
+    st.markdown("#### Spectroscopy stubs (NMR + IR)")
+    if is_learner(mode):
+        st.info(
+            "NMR peaks map chemical environments while IR bands highlight functional group vibrations. These stub runners echo "
+            "your inputs so you can practice capturing spectra schemas without touching production data."
+        )
+    elif is_lab(mode):
+        show_lab_mode_note("Enter peak or band details and run the stub; results stay lightweight for quick checks.")
+    else:
+        st.caption("Builder mode exposes registry toggles and raw stub outputs for debugging.")
+
+    if is_builder(mode) and meta:
+        render_debug_toggle(
+            "Show spectroscopy registry metadata",
+            key="spectroscopy_registry_metadata",
+            payload=meta.to_dict(),
+        )
+
+    nmr_tab, ir_tab = st.tabs(["NMR", "IR"])
+    with nmr_tab:
+        _render_nmr_stub_form(mode)
+    with ir_tab:
+        _render_ir_stub_form(mode)
 
 
 def _job_dataset_ids(job: Job) -> list[str]:
@@ -1162,16 +1339,18 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
             st.markdown("Operations")
             for op in descriptor.operations.values():
                 st.markdown(f"- `{op.name}` — {op.description}")
-            st.button(
-                "Run (coming soon)",
-                disabled=True,
-                help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
-            )
+            if descriptor.module_id == "spectroscopy":
+                _render_spectroscopy_stub_panel(metadata_registry, mode)
+            elif descriptor.module_id == "pchem.calorimetry":
+                _render_pchem_calorimetry_runner(metadata_registry, mode)
+            else:
+                st.button(
+                    "Run (coming soon)",
+                    disabled=True,
+                    help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
+                )
         else:
             st.write("_No operations registered._")
-
-            if descriptor.module_id == "pchem.calorimetry":
-                _render_pchem_calorimetry_runner(metadata_registry, mode)
 
         if is_builder(mode):
             st.markdown("#### Debug payloads")
