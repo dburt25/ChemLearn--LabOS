@@ -1,171 +1,295 @@
-"""Spectroscopy stub module providing placeholder NMR and IR analysis entrypoints.
+"""Spectroscopy module providing lightweight NMR and IR analysis helpers.
 
-The functions defined here deliberately avoid heavy computation while exposing
-rich schemas and metadata. They act as a contract for future implementations.
+The functions defined here are intentionally simple and schema-focused. They are
+meant to illustrate expected inputs/outputs and provide a stable contract for
+future, more capable implementations.
 """
 from __future__ import annotations
 
-from typing import Mapping, MutableMapping
+from dataclasses import dataclass, field
+from typing import Iterable, List, Mapping, MutableMapping, Sequence
 
 from .. import ModuleDescriptor, ModuleOperation, register_descriptor
 
 
 MODULE_ID = "spectroscopy"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 DESCRIPTION = (
-    "Stub spectroscopy module exposing NMR and IR analysis entrypoints with "
+    "Spectroscopy utilities exposing NMR and IR analysis entrypoints with "
     "schema-focused outputs."
 )
 
+SpectrumPairs = Iterable[Sequence[float]]
 
-def run_nmr_stub(params: Mapping[str, object]) -> MutableMapping[str, object]:
-    """Stub NMR analysis returning schemas and echoed inputs.
 
-    Expected input structure (not validated in depth):
-    - sample_id: Optional identifier string for traceability.
-    - chemical_formula: Molecular formula string (e.g., "C8H10N4O2").
-    - nucleus: Observed nucleus label (e.g., "1H", "13C").
-    - solvent: Acquisition solvent (e.g., "CDCl3").
-    - peak_list: List of peaks with chemical shift and optional metadata.
-        Example entry:
-        {
-            "shift_ppm": 7.12,
-            "intensity": 0.8,
-            "multiplicity": "d",
-            "coupling_constants": [8.4],
-            "integration": 1.0,
-            "notes": "aromatic proton"
-        }
-    - acquisition: Optional mapping of acquisition parameters such as frequency,
-      temperature, pulse program, or number of scans.
+@dataclass
+class NMRResult:
+    """Result container for :func:`analyze_nmr_spectrum`.
+
+    Attributes
+    ----------
+    peaks:
+        List of detected peaks represented as dictionaries with
+        ``shift_ppm``, ``intensity``, and ``annotation`` keys.
+    integration_suggestions:
+        Human-readable notes about how the detected peaks could be integrated.
+    notes:
+        Additional stub notes to communicate the simplified nature of the
+        analysis.
     """
 
-    peak_schema = {
-        "shift_ppm": "Chemical shift in ppm (float)",
-        "intensity": "Relative intensity or arbitrary units (float)",
-        "multiplicity": "Signal multiplicity string (s, d, t, q, m, br, etc.)",
-        "coupling_constants": "List of J values in Hz (list[float])",
-        "integration": "Relative integration value (float)",
-        "notes": "Optional free-form annotation for the peak",
-    }
+    peaks: List[Mapping[str, object]] = field(default_factory=list)
+    integration_suggestions: List[str] = field(default_factory=list)
+    notes: List[str] = field(default_factory=list)
 
-    output_schema = {
-        "method_name": "Identifier for the stub method (string)",
-        "stub": "Boolean flag indicating placeholder behavior",
-        "received_params": "Echo of provided inputs for traceability",
-        "annotated_peaks": "List of peaks enriched with placeholder annotations",
-        "notes": "High-level notes about stub limitations",
-        "metadata": "Additional metadata such as version and nucleus",
-    }
 
-    annotated_peaks = []
-    for idx, peak in enumerate(params.get("peak_list", []) or []):
-        annotated_peaks.append(
+@dataclass
+class IRResult:
+    """Result container for :func:`analyze_ir_spectrum`.
+
+    Attributes
+    ----------
+    peaks:
+        List of detected IR bands represented as dictionaries with
+        ``wavenumber_cm_1``, ``intensity``, and ``annotation`` keys.
+    functional_group_hints:
+        Human-readable notes suggesting potential functional groups.
+    notes:
+        Additional stub notes to communicate the simplified nature of the
+        analysis.
+    """
+
+    peaks: List[Mapping[str, object]] = field(default_factory=list)
+    functional_group_hints: List[str] = field(default_factory=list)
+    notes: List[str] = field(default_factory=list)
+
+
+def _normalize_spectrum(
+    spectrum: object, x_key: str, y_key: str
+) -> List[tuple[float, float]]:
+    """Normalize incoming spectral data to a list of ``(x, y)`` pairs.
+
+    The primary representation for spectra in this module is a list of
+    ``(x, y)`` pairs, where *x* is the axis value (ppm for NMR, cm⁻¹ for IR)
+    and *y* is the corresponding intensity/absorbance. For convenience, a
+    mapping with parallel arrays under ``x_key`` and ``y_key`` is also
+    accepted.
+    """
+
+    if isinstance(spectrum, Mapping):
+        xs = spectrum.get(x_key) or []
+        ys = spectrum.get(y_key) or []
+        return [(float(x), float(y)) for x, y in zip(xs, ys)]
+
+    if spectrum is None:
+        return []
+
+    return [(float(pair[0]), float(pair[1])) for pair in spectrum]  # type: ignore[index]
+
+
+def analyze_nmr_spectrum(
+    spectrum: SpectrumPairs | Mapping[str, object], params: Mapping[str, object] | None = None
+) -> NMRResult:
+    """Analyze a simple NMR spectrum and return peak annotations.
+
+    Parameters
+    ----------
+    spectrum:
+        Preferred representation is a list of ``(ppm, intensity)`` pairs. A
+        mapping with ``{"ppm": [...], "intensity": [...]}`` is also accepted
+        and will be normalized to pairs internally.
+    params:
+        Optional mapping of analysis settings. Recognized keys:
+        - ``threshold`` (float): minimum intensity required to report a peak.
+          Defaults to ``0.2``.
+        - ``aromatic_window`` (tuple[float, float]): ppm window that should be
+          annotated as potentially aromatic. Defaults to ``(6.0, 8.5)``.
+
+    Returns
+    -------
+    NMRResult
+        Dataclass containing detected peaks, integration suggestions, and
+        notes. The analysis is intentionally educational and deterministic
+        rather than physically rigorous.
+    """
+
+    params = dict(params or {})
+    threshold = float(params.get("threshold", 0.2))
+    aromatic_window = params.get("aromatic_window", (6.0, 8.5))
+    try:
+        aromatic_min, aromatic_max = (float(aromatic_window[0]), float(aromatic_window[1]))
+    except Exception:  # pragma: no cover - defensive fallback
+        aromatic_min, aromatic_max = 6.0, 8.5
+
+    normalized = _normalize_spectrum(spectrum, "ppm", "intensity")
+
+    peaks: List[Mapping[str, object]] = []
+    for shift_ppm, intensity in normalized:
+        if intensity < threshold:
+            continue
+
+        annotation = "above threshold"
+        if aromatic_min <= shift_ppm <= aromatic_max:
+            annotation = "within aromatic window"
+
+        peaks.append(
             {
-                "index": idx,
-                "original": peak,
-                "annotation": "Stub peak annotation — replace with real logic later.",
+                "shift_ppm": shift_ppm,
+                "intensity": intensity,
+                "annotation": annotation,
             }
         )
+
+    integration_suggestions: List[str] = []
+    if peaks:
+        integration_suggestions.append(
+            f"Detected {len(peaks)} candidate peaks above threshold {threshold:.2f}."
+        )
+    else:
+        integration_suggestions.append("No peaks exceeded the reporting threshold.")
+
+    notes = [
+        "This NMR analysis is intentionally lightweight and deterministic.",
+        "Use the annotated peaks as guidance for more advanced pipelines.",
+    ]
+
+    return NMRResult(peaks=peaks, integration_suggestions=integration_suggestions, notes=notes)
+
+
+def analyze_ir_spectrum(
+    spectrum: SpectrumPairs | Mapping[str, object], params: Mapping[str, object] | None = None
+) -> IRResult:
+    """Analyze a simple IR spectrum and return band annotations.
+
+    Parameters
+    ----------
+    spectrum:
+        Preferred representation is a list of ``(wavenumber_cm_1, intensity)``
+        pairs. A mapping with ``{"wavenumber": [...], "absorbance": [...]}``
+        is also accepted and will be normalized to pairs internally.
+    params:
+        Optional mapping of analysis settings. Recognized keys:
+        - ``threshold`` (float): minimum intensity required to report a band.
+          Defaults to ``0.3``.
+        - ``carbonyl_window`` (tuple[float, float]): wavenumber window flagged
+          as potentially carbonyl. Defaults to ``(1650.0, 1750.0)`` cm⁻¹.
+
+    Returns
+    -------
+    IRResult
+        Dataclass containing detected peaks, functional group hints, and notes.
+        The analysis is intentionally educational and deterministic rather than
+        a full spectral interpretation.
+    """
+
+    params = dict(params or {})
+    threshold = float(params.get("threshold", 0.3))
+    carbonyl_window = params.get("carbonyl_window", (1650.0, 1750.0))
+    try:
+        carbonyl_min, carbonyl_max = (float(carbonyl_window[0]), float(carbonyl_window[1]))
+    except Exception:  # pragma: no cover - defensive fallback
+        carbonyl_min, carbonyl_max = 1650.0, 1750.0
+
+    normalized = _normalize_spectrum(spectrum, "wavenumber", "absorbance")
+
+    peaks: List[Mapping[str, object]] = []
+    functional_group_hints: List[str] = []
+
+    for wavenumber_cm_1, intensity in normalized:
+        if intensity < threshold:
+            continue
+
+        annotation = "above threshold"
+        if carbonyl_min <= wavenumber_cm_1 <= carbonyl_max:
+            annotation = "within carbonyl window"
+            functional_group_hints.append("Possible carbonyl stretch detected.")
+
+        peaks.append(
+            {
+                "wavenumber_cm_1": wavenumber_cm_1,
+                "intensity": intensity,
+                "annotation": annotation,
+            }
+        )
+
+    if not functional_group_hints:
+        functional_group_hints.append("No functional group hints generated.")
+
+    notes = [
+        "This IR analysis is intentionally lightweight and deterministic.",
+        "Use the annotated bands as guidance for more advanced pipelines.",
+    ]
+
+    return IRResult(peaks=peaks, functional_group_hints=functional_group_hints, notes=notes)
+
+
+def run_nmr_stub(params: Mapping[str, object]) -> MutableMapping[str, object]:
+    """Backward-compatible stub that delegates to :func:`analyze_nmr_spectrum`.
+
+    The legacy stub accepted a mapping with ``peak_list`` entries. Each entry
+    may contain ``shift_ppm`` and ``intensity`` fields. These are normalized and
+    passed through the new analysis routine while preserving echoed inputs and
+    metadata that downstream consumers may rely on.
+    """
+
+    peak_pairs = []
+    for peak in params.get("peak_list", []) or []:
+        shift = peak.get("shift_ppm") if isinstance(peak, Mapping) else None
+        intensity = peak.get("intensity") if isinstance(peak, Mapping) else None
+        if shift is None or intensity is None:
+            continue
+        peak_pairs.append((shift, intensity))
+
+    result = analyze_nmr_spectrum(peak_pairs, params)
 
     return {
         "method_name": "spectroscopy.nmr_stub",
         "description": "NMR spectroscopy analysis stub with schema guidance.",
         "stub": True,
-        "input_schema": {
-            "sample_id": "Optional unique sample identifier (string)",
-            "chemical_formula": "Molecular formula for the analyte (string)",
-            "nucleus": "Observed nucleus label such as '1H' or '13C' (string)",
-            "solvent": "Acquisition solvent (string)",
-            "peak_list": peak_schema,
-            "acquisition": "Optional acquisition parameters mapping",
-        },
-        "output_schema": output_schema,
-        "annotated_peaks": annotated_peaks,
-        "notes": [
-            "This is a stub with no spectral interpretation or validation.",
-            "Use the schemas to shape real implementations and data contracts.",
-        ],
+        "annotated_peaks": result.peaks,
+        "notes": result.notes,
         "metadata": {
             "module_id": MODULE_ID,
             "version": VERSION,
             "nucleus": params.get("nucleus"),
         },
         "received_params": dict(params),
+        "integration_suggestions": result.integration_suggestions,
     }
 
 
 def run_ir_stub(params: Mapping[str, object]) -> MutableMapping[str, object]:
-    """Stub IR analysis returning schemas and echoed inputs.
+    """Backward-compatible stub that delegates to :func:`analyze_ir_spectrum`.
 
-    Expected input structure (not validated in depth):
-    - sample_id: Optional identifier string for traceability.
-    - chemical_formula: Molecular formula string.
-    - peak_list: List of IR bands with position and optional metadata.
-        Example entry:
-        {
-            "wavenumber_cm_1": 1710,
-            "intensity": "strong",
-            "assignment": "C=O stretch",
-            "confidence": 0.6,
-            "notes": "placeholder assignment"
-        }
-    - instrument: Optional mapping of instrument settings (resolution, source,
-      detector, beam splitter, number of scans, atmosphere, etc.).
-    - processing: Optional mapping of processing flags (baseline_correction,
-      smoothing, ATR correction details, etc.).
+    The legacy stub accepted a mapping with ``peak_list`` entries. Each entry
+    may contain ``wavenumber_cm_1`` and ``intensity`` fields. These are
+    normalized and passed through the new analysis routine while preserving
+    echoed inputs and metadata that downstream consumers may rely on.
     """
 
-    peak_schema = {
-        "wavenumber_cm_1": "Band position in cm^-1 (number)",
-        "intensity": "Qualitative or quantitative intensity (string|float)",
-        "assignment": "Tentative functional group assignment (string)",
-        "confidence": "Confidence score for assignment between 0-1 (float)",
-        "notes": "Optional free-form annotation",
-    }
+    peak_pairs = []
+    for peak in params.get("peak_list", []) or []:
+        wavenumber = peak.get("wavenumber_cm_1") if isinstance(peak, Mapping) else None
+        intensity = peak.get("intensity") if isinstance(peak, Mapping) else None
+        if wavenumber is None or intensity is None:
+            continue
+        peak_pairs.append((wavenumber, intensity))
 
-    output_schema = {
-        "method_name": "Identifier for the stub method (string)",
-        "stub": "Boolean flag indicating placeholder behavior",
-        "received_params": "Echo of provided inputs for traceability",
-        "annotated_peaks": "List of bands enriched with placeholder annotations",
-        "notes": "High-level notes about stub limitations",
-        "metadata": "Additional metadata such as version and formula",
-    }
-
-    annotated_peaks = []
-    for idx, peak in enumerate(params.get("peak_list", []) or []):
-        annotated_peaks.append(
-            {
-                "index": idx,
-                "original": peak,
-                "annotation": "Stub IR annotation — add interpretation later.",
-            }
-        )
+    result = analyze_ir_spectrum(peak_pairs, params)
 
     return {
         "method_name": "spectroscopy.ir_stub",
         "description": "IR spectroscopy analysis stub with schema guidance.",
         "stub": True,
-        "input_schema": {
-            "sample_id": "Optional unique sample identifier (string)",
-            "chemical_formula": "Molecular formula for the analyte (string)",
-            "peak_list": peak_schema,
-            "instrument": "Optional instrument settings mapping",
-            "processing": "Optional processing metadata mapping",
-        },
-        "output_schema": output_schema,
-        "annotated_peaks": annotated_peaks,
-        "notes": [
-            "This is a stub with no vibrational mode identification.",
-            "Use the schemas as contracts for future IR pipelines.",
-        ],
+        "annotated_peaks": result.peaks,
+        "notes": result.notes,
         "metadata": {
             "module_id": MODULE_ID,
             "version": VERSION,
             "chemical_formula": params.get("chemical_formula"),
         },
         "received_params": dict(params),
+        "functional_group_hints": result.functional_group_hints,
     }
 
 
@@ -177,8 +301,26 @@ descriptor = ModuleDescriptor(
 
 descriptor.register_operation(
     ModuleOperation(
+        name="analyze_nmr_spectrum",
+        description="Entrypoint for lightweight NMR spectrum analysis.",
+        handler=analyze_nmr_spectrum,
+    )
+)
+
+
+descriptor.register_operation(
+    ModuleOperation(
+        name="analyze_ir_spectrum",
+        description="Entrypoint for lightweight IR spectrum analysis.",
+        handler=analyze_ir_spectrum,
+    )
+)
+
+
+descriptor.register_operation(
+    ModuleOperation(
         name="nmr_stub",
-        description="Stub entrypoint for NMR spectroscopy analysis contracts.",
+        description="Legacy stub entrypoint for NMR spectroscopy analysis.",
         handler=run_nmr_stub,
     )
 )
@@ -186,9 +328,18 @@ descriptor.register_operation(
 descriptor.register_operation(
     ModuleOperation(
         name="ir_stub",
-        description="Stub entrypoint for IR spectroscopy analysis contracts.",
+        description="Legacy stub entrypoint for IR spectroscopy analysis.",
         handler=run_ir_stub,
     )
 )
 
 register_descriptor(descriptor)
+
+__all__ = [
+    "NMRResult",
+    "IRResult",
+    "analyze_nmr_spectrum",
+    "analyze_ir_spectrum",
+    "run_nmr_stub",
+    "run_ir_stub",
+]
