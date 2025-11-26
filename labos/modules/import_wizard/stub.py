@@ -3,7 +3,9 @@
 This module keeps the registration stub for the import wizard while providing
 lightweight helpers for schema inference, dataset reference creation, and basic
 provenance logging. The logic is intentionally in-memory and deterministic so
-it can be used in educational settings without touching real files.
+it can be used in educational settings without touching real files. It also
+demonstrates how domain-specific imports (e.g., calorimetry) can plug into the
+same provenance conventions while remaining educational and minimal.
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from typing import Iterable, Mapping, MutableMapping, Sequence
 from labos.core.audit import AuditEvent
 from labos.core.datasets import DatasetRef
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
+from labos.modules.imports.calorimetry import import_calorimetry_table
 
 MODULE_KEY = "import.wizard"
 MODULE_VERSION = "0.3.0"
@@ -246,6 +249,47 @@ def build_import_summary(
         "schema": schema,
     }
     return summary
+
+
+def build_calorimetry_import_summary(
+    data: object,
+    source: str | None = None,
+    actor: str | None = None,
+    label: str | None = None,
+) -> dict[str, object]:
+    """Run the calorimetry import path with provenance wiring.
+
+    This helper mirrors :func:`build_import_summary` but routes through the
+    calorimetry schema normalizer. It assumes tidy, in-memory data and exists to
+    demonstrate how DatasetRef and AuditEvent objects hang together for the
+    import wizard. The payload is intentionally lightweight and deterministic so
+    unit tests can exercise provenance without touching external systems.
+    """
+
+    payload = import_calorimetry_table(
+        data,
+        include_dataset_ref=True,
+        source=source,
+        label=label or "Calorimetry import",
+    )
+
+    dataset_dict = payload.get("dataset") or {}
+    audit_dicts = payload.get("audit_events") or []
+    audit_dict = payload.get("audit") or (audit_dicts[0] if audit_dicts else {})
+
+    return {
+        "module_key": payload.get("module_key", MODULE_KEY),
+        "dataset": dataset_dict,
+        "audit": audit_dict,
+        "audit_events": audit_dicts or ([audit_dict] if audit_dict else []),
+        "schema": payload.get("schema", {}),
+        "column_mapping": payload.get("column_mapping", {}),
+        "unmatched_columns": payload.get("unmatched_columns", []),
+        "records": payload.get("records", []),
+        "status": "imported",
+        "source": source or "labos://inline",
+        "actor": actor or "labos.importer",
+    }
 
 
 def run_import_stub(params: Mapping[str, object] | None = None) -> dict[str, object]:

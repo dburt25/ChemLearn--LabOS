@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from labos.core import storage
 from labos.modules.imports.calorimetry import import_calorimetry_table
 
 
@@ -36,3 +37,22 @@ def test_import_calorimetry_table_invalid_float_values() -> None:
 
     with pytest.raises(ValueError, match="expects a float"):
         import_calorimetry_table(rows)
+
+
+def test_import_calorimetry_table_emits_dataset_and_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LABOS_USE_STORE", "1")
+    monkeypatch.setattr(storage, "_ACTIVE_STORES", None)
+
+    rows = [{"time": 0, "temperature_c": 25.0, "heat_flow_mw": 1.5}]
+
+    result = import_calorimetry_table(rows, source="labos://unit-test", label="Cal run")
+
+    dataset = result["dataset"]
+    assert dataset["id"].startswith("DS-CAL-")
+    stores = storage.get_active_stores()
+    assert stores is not None
+    assert dataset["id"] in stores.datasets.list_datasets()
+
+    audit = result["audit"]
+    assert audit["details"]["module_key"] == "import.calorimetry"
+    assert audit["target"] == dataset["id"]

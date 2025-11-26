@@ -1,0 +1,13 @@
+{
+  "id": "JOB-001",
+  "experiment_id": "EXP-001",
+  "kind": "calibration",
+  "status": "queued",
+  "params": {},
+  "datasets_in": [],
+  "datasets_out": [],
+  "error_message": null,
+  "created_at": "2024-01-01T00:00:00+00:00",
+  "started_at": null,
+  "finished_at": null
+}

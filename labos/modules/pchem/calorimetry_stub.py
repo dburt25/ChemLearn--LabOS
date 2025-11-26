@@ -15,14 +15,38 @@ DESCRIPTION = "P-Chem calorimetry stub producing dataset/audit placeholders (no 
 R_IDEAL_GAS = 8.314462618  # J/(mol*K)
 
 
+def _ensure_finite(value: float, field: str) -> float:
+    if not math.isfinite(value):
+        raise ValueError(f"{field} must be a finite number.")
+    return value
+
+
+def _ensure_positive(value: float, field: str) -> float:
+    value = _ensure_finite(value, field)
+    if value <= 0:
+        raise ValueError(f"{field} must be positive.")
+    return value
+
+
 def run_calorimetry_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
     """Return deterministic calorimetry metadata for educational walkthroughs."""
 
     payload = dict(params or {})
-    delta_t = float(payload.get("delta_t", 3.5))
-    heat_capacity = float(payload.get("heat_capacity", 4.18))
+    delta_t_raw = payload.get("delta_t", 3.5)
+    heat_capacity_raw = payload.get("heat_capacity", 4.18)
     actor = str(payload.get("actor", "labos.stub"))
-    sample_id = str(payload.get("sample_id", "SAMPLE-STUB"))
+    sample_id = str(payload.get("sample_id", "SAMPLE-STUB")).strip()
+
+    delta_t = _ensure_finite(float(delta_t_raw), "delta_t")
+    if abs(delta_t) > 1_000:
+        raise ValueError("delta_t magnitude appears implausible (|ΔT| > 1000).")
+
+    heat_capacity = _ensure_positive(float(heat_capacity_raw), "heat_capacity")
+    if heat_capacity > 100:
+        raise ValueError("heat_capacity exceeds plausible range (>100 J/g*C).")
+
+    if not sample_id:
+        raise ValueError("sample_id is required for calorimetry runs.")
 
     sample_tag = sample_id.replace(" ", "-") or "SAMPLE-STUB"
     run_token = uuid4().hex[:8].upper()
@@ -192,6 +216,14 @@ def run_ideal_gas(params: dict[str, Any] | None = None) -> dict[str, object]:
     volume_unit = str(payload.get("volume_unit", "m3"))
     temperature_unit = str(payload.get("temperature_unit", "K"))
 
+    pressure_pa = _pressure_to_pa(_ensure_positive(float(pressure), "pressure"), pressure_unit) if pressure is not None else None
+    volume_m3 = _volume_to_m3(_ensure_positive(float(volume), "volume"), volume_unit) if volume is not None else None
+    temperature_value = _ensure_finite(float(temperature), "temperature") if temperature is not None else None
+    temperature_k = _temp_to_kelvin(temperature_value, temperature_unit) if temperature_value is not None else None
+    if temperature_k is not None:
+        _ensure_positive(temperature_k, "temperature (K)")
+    amount_mol = _ensure_positive(float(amount), "amount_mol") if amount is not None else None
+
     present = {name: value for name, value in {
         "pressure": pressure,
         "volume": volume,
@@ -205,26 +237,6 @@ def run_ideal_gas(params: dict[str, Any] | None = None) -> dict[str, object]:
             "module_key": "pchem.ideal_gas",
             "status": "error",
             "message": "Provide exactly three of pressure, volume, amount_mol, temperature.",
-            "inputs": payload,
-            "method": _method_metadata(
-                "Ideal gas law",
-                "Solves PV = nRT when exactly one variable is unknown.",
-                {"pressure": "Pa|kPa|atm", "volume": "m^3|L", "temperature": "K|C", "amount": "mol"},
-                ["Ideal gas assumption", "Requires exactly one unknown"],
-                ["Atkins & de Paula, Physical Chemistry, ideal gas law"],
-            ),
-        }
-
-    try:
-        pressure_pa = _pressure_to_pa(float(pressure), pressure_unit) if pressure is not None else None
-        volume_m3 = _volume_to_m3(float(volume), volume_unit) if volume is not None else None
-        temperature_k = _temp_to_kelvin(float(temperature), temperature_unit) if temperature is not None else None
-        amount_mol = float(amount) if amount is not None else None
-    except (TypeError, ValueError) as exc:
-        return {
-            "module_key": "pchem.ideal_gas",
-            "status": "error",
-            "message": f"Invalid input: {exc}",
             "inputs": payload,
             "method": _method_metadata(
                 "Ideal gas law",

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field, asdict
 from typing import Any, Mapping, Sequence
+import math
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
 MODULE_KEY = "ei_ms.basic_analysis"
-MODULE_VERSION = "0.2.0"
+MODULE_VERSION = "0.2.1"
 METHOD_METADATA = {
     "method_name": "EI-MS basic heuristic analysis",
     "description": (
@@ -33,6 +35,53 @@ _COMMON_LOSSES = {
 _LOSS_TOLERANCE = 0.5
 
 
+@dataclass(frozen=True)
+class NeutralLoss:
+    mass_difference: float
+    label: str
+
+
+@dataclass(frozen=True)
+class Fragment:
+    mass: float
+    relative_intensity: float
+    classification: str
+    labels: list[str]
+    neutral_losses: list[NeutralLoss]
+    annotation: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["neutral_losses"] = [asdict(loss) for loss in self.neutral_losses]
+        return payload
+
+
+@dataclass
+class AnalysisResult:
+    """Structured EI-MS heuristic output."""
+
+    module_key: str
+    status: str
+    method: Mapping[str, Any]
+    inputs: Mapping[str, Any]
+    fragments: list[Fragment]
+    summary: Mapping[str, Any]
+    message: str
+    notes: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "module_key": self.module_key,
+            "status": self.status,
+            "method": dict(self.method),
+            "inputs": dict(self.inputs),
+            "fragments": [fragment.to_dict() for fragment in self.fragments],
+            "summary": dict(self.summary),
+            "message": self.message,
+            "notes": list(self.notes),
+        }
+
+
 def _normalize_fragment_masses(fragments: Sequence[Any] | None) -> list[float]:
     if fragments is None:
         return []
@@ -45,6 +94,42 @@ def _normalize_fragment_masses(fragments: Sequence[Any] | None) -> list[float]:
         except (TypeError, ValueError):
             continue
     return normalized
+
+
+def _normalize_spectrum_entries(spectrum: Sequence[Any] | None) -> tuple[list[float], list[float]]:
+    if not spectrum:
+        return ([], [])
+
+    masses: list[float] = []
+    intensities: list[float] = []
+    for entry in spectrum:
+        mz_value: Any
+        intensity_value: Any
+        if isinstance(entry, Mapping):
+            mz_value = entry.get("mz") or entry.get("m/z") or entry.get("mass")
+            intensity_value = entry.get("intensity")
+        elif isinstance(entry, Sequence) and not isinstance(entry, (str, bytes, bytearray)):
+            if len(entry) < 2:
+                raise ValueError("Spectrum tuples must include m/z and intensity.")
+            mz_value, intensity_value = entry[0], entry[1]
+        else:
+            raise ValueError("Spectrum entries must be mappings or (m/z, intensity) tuples.")
+
+        try:
+            mz_float = float(mz_value)
+            intensity_float = float(intensity_value)
+        except (TypeError, ValueError) as exc:  # pragma: no cover - defensive path
+            raise ValueError(f"Spectrum entries must contain numeric m/z and intensity: {exc}")
+
+        if not math.isfinite(mz_float) or mz_float <= 0:
+            raise ValueError("m/z values must be positive and finite.")
+        if not math.isfinite(intensity_float) or intensity_float < 0:
+            raise ValueError("Intensities must be non-negative and finite.")
+
+        masses.append(mz_float)
+        intensities.append(intensity_float)
+
+    return masses, intensities
 
 
 def _normalize_intensities(
@@ -65,7 +150,7 @@ def _normalize_intensities(
     return normalized[:count]
 
 
-def _detect_neutral_losses(precursor_mass: float, fragment_mass: float) -> list[dict[str, float | str]]:
+def _detect_neutral_losses(precursor_mass: float, fragment_mass: float) -> list[NeutralLoss]:
     if precursor_mass <= 0 or fragment_mass <= 0:
         return []
 
@@ -73,12 +158,12 @@ def _detect_neutral_losses(precursor_mass: float, fragment_mass: float) -> list[
     if loss <= 0:
         return []
 
-    matches: list[dict[str, float | str]] = []
+    matches: list[NeutralLoss] = []
     for expected_loss, label in _COMMON_LOSSES.items():
         if abs(loss - expected_loss) <= _LOSS_TOLERANCE:
-            matches.append({"mass_difference": round(loss, 3), "label": label})
+            matches.append(NeutralLoss(mass_difference=round(loss, 3), label=label))
     if not matches:
-        matches.append({"mass_difference": round(loss, 3), "label": "Unassigned neutral loss"})
+        matches.append(NeutralLoss(mass_difference=round(loss, 3), label="Unassigned neutral loss"))
     return matches
 
 
@@ -93,7 +178,7 @@ def _apply_annotations(fragment_mass: float, annotations: Mapping[Any, Any]) -> 
     return None
 
 
-def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def run_basic_analysis(params: Mapping[str, Any] | None = None) -> AnalysisResult:
     """Perform deterministic EI-MS heuristics for quick inspection.
 
     Parameters
@@ -104,19 +189,40 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
 
     Returns
     -------
-    dict
+    AnalysisResult
         Structured analysis with fragment labels, neutral loss suggestions, and metadata.
     """
 
     payload = dict(params or {})
+    spectrum_masses: list[float] = []
+    spectrum_intensities: list[float] = []
+    if "spectrum" in payload:
+        spectrum_masses, spectrum_intensities = _normalize_spectrum_entries(payload.get("spectrum"))
+
     precursor_mass = float(payload.get("precursor_mass", 0.0))
-    fragment_masses = _normalize_fragment_masses(payload.get("fragment_masses"))
+    if not math.isfinite(precursor_mass) or precursor_mass <= 0:
+        raise ValueError("precursor_mass must be positive and finite.")
+
+    fragment_masses = _normalize_fragment_masses(payload.get("fragment_masses")) or spectrum_masses
+    if not fragment_masses:
+        raise ValueError("fragment_masses must include at least one m/z value.")
+    for mass in fragment_masses:
+        if not math.isfinite(mass) or mass <= 0:
+            raise ValueError("fragment_masses entries must be positive and finite.")
+
     intensities = _normalize_intensities(
-        payload.get("fragment_intensities"), len(fragment_masses), precursor_mass, fragment_masses
+        payload.get("fragment_intensities") or spectrum_intensities,
+        len(fragment_masses),
+        precursor_mass,
+        fragment_masses,
     )
+    for intensity in intensities:
+        if not math.isfinite(intensity) or intensity < 0:
+            raise ValueError("fragment_intensities must be non-negative and finite.")
+
     annotations = payload.get("annotations") or {}
 
-    fragments: list[dict[str, Any]] = []
+    fragments: list[Fragment] = []
     base_peak_index = 0 if fragment_masses else None
     if intensities and fragment_masses:
         base_peak_index = max(range(len(fragment_masses)), key=intensities.__getitem__)
@@ -137,22 +243,22 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
         fragment_annotations = _apply_annotations(mass, annotations)
         neutral_losses = _detect_neutral_losses(precursor_mass, mass)
 
-        fragment_entry: dict[str, Any] = {
-            "mass": round(mass, 4),
-            "relative_intensity": rel_intensity,
-            "classification": classification,
-            "labels": tags,
-            "neutral_losses": neutral_losses,
-        }
-        if fragment_annotations:
-            fragment_entry["annotation"] = fragment_annotations
-        fragments.append(fragment_entry)
+        fragments.append(
+            Fragment(
+                mass=round(mass, 4),
+                relative_intensity=rel_intensity,
+                classification=classification,
+                labels=tags,
+                neutral_losses=neutral_losses,
+                annotation=fragment_annotations,
+            )
+        )
 
-    summary_losses: list[dict[str, Any]] = []
+    summary_losses: list[NeutralLoss] = []
     seen_losses: set[float] = set()
     for fragment in fragments:
-        for loss in fragment.get("neutral_losses", []):
-            loss_mass = float(loss["mass_difference"])
+        for loss in fragment.neutral_losses:
+            loss_mass = float(loss.mass_difference)
             if loss_mass in seen_losses:
                 continue
             seen_losses.add(loss_mass)
@@ -161,27 +267,33 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
     base_peak_mass = (
         round(fragment_masses[base_peak_index], 4) if base_peak_index is not None else None
     )
-    major_fragment_masses = [frag["mass"] for frag in fragments if "major_fragment" in frag["labels"]]
+    major_fragment_masses = [frag.mass for frag in fragments if "major_fragment" in frag.labels]
 
-    result = {
-        "module_key": MODULE_KEY,
-        "status": "ok",
-        "method": METHOD_METADATA,
-        "inputs": {
+    result = AnalysisResult(
+        module_key=MODULE_KEY,
+        status="ok",
+        method=METHOD_METADATA,
+        inputs={
             "precursor_mass": precursor_mass,
             "fragment_masses": fragment_masses,
             "fragment_intensities": intensities,
             "annotations": annotations,
         },
-        "fragments": fragments,
-        "summary": {
+        fragments=fragments,
+        summary={
             "base_peak_mass": base_peak_mass,
             "major_fragment_masses": major_fragment_masses,
-            "neutral_losses": summary_losses,
+            "neutral_losses": [asdict(loss) for loss in summary_losses],
         },
-        "message": "Heuristic-only EI-MS tagging; not validated for experimental planning.",
-    }
+        message="Heuristic-only EI-MS tagging; not validated for experimental planning.",
+    )
     return result
+
+
+def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Compatibility wrapper returning a dictionary payload."""
+
+    return run_basic_analysis(params).to_dict()
 
 
 def _register() -> None:

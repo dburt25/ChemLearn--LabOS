@@ -1,6 +1,6 @@
 # Provenance Guide
 
-This guide explains how to record citations, track dataset lineage, and set expectations for contributors.
+This guide explains how to record citations, track dataset lineage, and set expectations for contributors. The `ModuleRegistry` now acts as the authoritative catalog for built-in methods (EI-MS, P-Chem, spectroscopy, Import Wizard), and UI footers pull provenance fields directly from it.
 
 ## Recording Method Citations
 - Include formal references (DOI/URL) for external methods or algorithms used in modules.

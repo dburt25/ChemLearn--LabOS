@@ -1,0 +1,28 @@
+{
+  "record_id": "demo-exp-calorimetry",
+  "created_at": "2024-05-01T12:00:00+00:00",
+  "updated_at": "2024-05-01T12:15:00+00:00",
+  "audit_trail": [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ],
+  "last_audit_event_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "signature": null,
+  "user_id": "demo-user",
+  "title": "Demo PChem Calorimetry Run",
+  "purpose": "Synthetic heat capacity estimation for walkthroughs.",
+  "status": "active",
+  "inputs": {
+    "sample_id": "CAL-DEM-001",
+    "method": "constant-pressure",
+    "instrument": "demo-calorimeter"
+  },
+  "outputs": {
+    "primary_dataset": "demo-dataset-calorimetry"
+  },
+  "tags": [
+    "demo",
+    "calorimetry",
+    "pc-chem"
+  ]
+}
