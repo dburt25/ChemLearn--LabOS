@@ -18,19 +18,19 @@ Defines goals for a single command-line entry point once LabOS Core is available
 - Commands must emit structured logs for ALCOA+ compliance.
 - Testing harness required (unit + e2e) before general availability.
 
-## Phase 2 Demo Commands (Wave 3)
-The initial CLI shipped as an educational preview. Commands run entirely in-memory and do **not** persist any records:
+## Phase 2+ Persistent CLI commands
+The current CLI aligns with the internal workflow helpers and reads/writes JSON
+records under ``LABOS_ROOT``:
 
-- `labos-cli modules` – list module registry entries (key, display name, method name, limitations summary).
-- `labos-cli experiments` – print example experiments for Learner/Lab/Builder modes with a "demo only" disclaimer.
-- `labos-cli demo-job` – create an in-memory Experiment + Job pair using core helpers and show their dictionaries.
+- `labos list-modules` – show module keys with their method names from the default ``ModuleRegistry``.
+- `labos list-experiments` – print experiment id, name, and creation time from on-disk records.
+- `labos list-datasets` – list dataset ids with any experiment/job provenance hints found in metadata.
+- `labos run-module <module_key>` – invoke ``run_module_job`` with inline JSON parameters or a params file and print the ``WorkflowResult`` as JSON.
 
 Example invocations (from the repo root):
 
 ```bash
-python -m labos.cli.main modules
-python -m labos.cli.main experiments
-python -m labos.cli.main demo-job
+python -m labos.cli list-modules
+python -m labos.cli list-experiments --root /tmp/labos-demo
+python -m labos.cli run-module pchem.calorimetry --params-json '{"delta_t": 2.5}'
 ```
-
-These are Phase 2 demonstration commands; persistence, authentication, and structured audit logging will arrive in later phases.
