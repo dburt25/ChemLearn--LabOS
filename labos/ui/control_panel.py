@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, cast
+import traceback
 
 try:  # pragma: no cover - imported at module import time only
     import streamlit as _streamlit  # type: ignore
@@ -33,7 +34,15 @@ from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
-from labos.ui.components import mode_badge, section_block, section_header, spaced_columns, subtle_divider, title_block
+from labos.ui.components import (
+    mode_badge,
+    render_method_footer,
+    section_block,
+    section_header,
+    spaced_columns,
+    subtle_divider,
+    title_block,
+)
 from labos.ui.workspace import render_workspace
 from labos.ui.provenance_footer import render_method_and_data_footer
 
@@ -81,6 +90,41 @@ MODE_PROFILES: dict[str, dict[str, object]] = {
         },
     },
 }
+
+EXPERIMENT_TEMPLATES: list[dict[str, object]] = [
+    {
+        "key": "calorimetry_warmup",
+        "name": "Calorimetry warmup",
+        "module_id": "pchem.calorimetry",
+        "description": (
+            "Prefills a gentle ΔT change and common water heat capacity so learners can see how parameters roll "
+            "into experiment, job, and dataset records."
+        ),
+        "prefill": {
+            "experiment_name": "Calorimetry Warmup",
+            "sample_id": "SAMPLE-HEAT-01",
+            "delta_t": 2.5,
+            "heat_capacity": 4.18,
+            "actor": "learner-operator",
+        },
+    },
+    {
+        "key": "calorimetry_stress",
+        "name": "Calorimetry stress test",
+        "module_id": "pchem.calorimetry",
+        "description": (
+            "Uses a larger ΔT swing to simulate high-variance runs. Great for Lab operators validating data capture "
+            "before production."
+        ),
+        "prefill": {
+            "experiment_name": "Calorimetry Stress",
+            "sample_id": "SAMPLE-HEAT-99",
+            "delta_t": 8.0,
+            "heat_capacity": 3.9,
+            "actor": "lab-operator",
+        },
+    },
+]
 
 
 def _init_session_state() -> None:
@@ -302,6 +346,9 @@ def render_method_and_data_panel(meta: ModuleMetadata | None, dataset_id: str | 
     else:
         show_method_metadata(meta)
 
+    module_key = meta.key if meta else "pchem.calorimetry"
+    render_method_footer(module_key, meta)
+
 
 def render_debug_toggle(label: str, key: str, payload: Mapping[str, object] | Sequence[Mapping[str, object]] | None) -> None:
     """Consistent checkbox + JSON renderer for Builder mode."""
@@ -311,6 +358,23 @@ def render_debug_toggle(label: str, key: str, payload: Mapping[str, object] | Se
             st.json(payload)
         else:
             st.json(list(payload or []))
+
+
+def _safe_parse_json_list(raw_text: str, *, fallback: Optional[Sequence[object]] = None) -> list[object]:
+    """Parse a JSON list from user input, returning a fallback if parsing fails."""
+
+    fallback_list = list(fallback or [])
+    if not raw_text.strip():
+        return fallback_list
+    try:
+        parsed = json.loads(raw_text)
+    except Exception:
+        st.warning("Unable to parse the provided list; using defaults instead.")
+        return fallback_list
+    if isinstance(parsed, list):
+        return list(parsed)
+    st.warning("Expected a JSON array; falling back to defaults.")
+    return fallback_list
 
 
 def show_json_restricted_message(entity: str) -> None:
@@ -334,6 +398,166 @@ def show_calorimetry_raw_data(
         st.json(list(audit_payload or []))
     if st.checkbox("Show Module Metadata", key="calorimetry_show_metadata"):
         st.json(meta.to_dict() if meta else {"message": "No metadata found for pchem.calorimetry."})
+
+
+def _render_spectroscopy_stub_results(result: "WorkflowResult", mode: str, stub_kind: str) -> None:
+    dataset_id = result.dataset.id if result.dataset else "dataset-pending"
+    job_id = result.job.id
+    st.success(f"{stub_kind} stub job {job_id} completed; dataset {dataset_id} recorded.")
+
+    module_output = result.module_output or {}
+    annotated = cast(Sequence[object] | None, module_output.get("annotated_peaks"))
+    annotated_count = len(annotated) if isinstance(annotated, Sequence) else 0
+
+    if annotated_count and is_learner(mode):
+        st.info(
+            f"Captured {annotated_count} peak entries with placeholder annotations to illustrate spectroscopy schemas."
+        )
+    elif annotated_count:
+        st.caption(f"{annotated_count} peak entries echoed for verification.")
+
+    if is_builder(mode):
+        render_debug_toggle(
+            f"Show raw {stub_kind.lower()} stub output",
+            key=f"{stub_kind.lower()}_stub_output_{job_id}",
+            payload=module_output or {"message": "No module output returned."},
+        )
+    elif is_lab(mode):
+        show_lab_mode_note("Raw stub JSON stays tucked away in Lab mode; switch to Builder to inspect schemas.")
+
+
+def _render_nmr_stub_form(mode: str) -> None:
+    st.markdown("##### NMR stub")
+    default_peaks = [
+        {"shift_ppm": 7.12, "intensity": 0.8, "multiplicity": "d", "notes": "aromatic"},
+    ]
+    with st.form("spectroscopy_nmr_stub_form", clear_on_submit=False):
+        experiment_name = st.text_input("Experiment name", value="NMR stub experiment")
+        sample_id = st.text_input("Sample ID", value="NMR-SAMPLE")
+        chemical_formula = st.text_input("Chemical formula", value="C8H10N4O2")
+        nucleus = st.text_input("Nucleus", value="1H")
+        solvent = st.text_input("Solvent", value="CDCl3")
+        shift_ppm = st.number_input("Peak shift (ppm)", value=7.12, step=0.01)
+        intensity = st.number_input("Peak intensity", value=0.8, step=0.1)
+        multiplicity = st.text_input("Multiplicity", value="d")
+        notes = st.text_input("Peak notes", value="placeholder annotation")
+        extra_peaks_raw = st.text_area(
+            "Additional peaks (JSON list, optional)",
+            value="",
+            help="Provide an array of additional NMR peaks to include with the stub run.",
+        )
+        actor = st.text_input("Actor", value="lab-operator")
+        submitted = st.form_submit_button("Run NMR stub", use_container_width=True)
+
+    if submitted:
+        peak_entry = {
+            "shift_ppm": shift_ppm,
+            "intensity": intensity,
+            "multiplicity": multiplicity or None,
+            "notes": notes or None,
+        }
+        peaks = [peak_entry]
+        if extra_peaks_raw.strip():
+            peaks.extend(_safe_parse_json_list(extra_peaks_raw, fallback=default_peaks))
+        with st.spinner("Running spectroscopy.nmr_stub..."):
+            try:
+                result = run_module_job(
+                    module_key="spectroscopy",
+                    operation="nmr_stub",
+                    params={
+                        "sample_id": sample_id,
+                        "chemical_formula": chemical_formula,
+                        "nucleus": nucleus,
+                        "solvent": solvent,
+                        "peak_list": peaks,
+                    },
+                    actor=actor,
+                    experiment_name=experiment_name,
+                )
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                st.error(f"NMR stub failed: {exc}")
+            else:
+                _render_spectroscopy_stub_results(result, mode, "NMR")
+
+
+def _render_ir_stub_form(mode: str) -> None:
+    st.markdown("##### IR stub")
+    default_peaks = [
+        {"wavenumber_cm_1": 1710, "intensity": "strong", "assignment": "C=O stretch", "confidence": 0.6},
+    ]
+    with st.form("spectroscopy_ir_stub_form", clear_on_submit=False):
+        experiment_name = st.text_input("Experiment name (IR)", value="IR stub experiment")
+        sample_id = st.text_input("Sample ID (IR)", value="IR-SAMPLE")
+        chemical_formula = st.text_input("Chemical formula (IR)", value="C8H10N4O2")
+        wavenumber = st.number_input("Band position (cm^-1)", value=1710, step=5)
+        intensity = st.text_input("Band intensity", value="strong")
+        assignment = st.text_input("Assignment", value="carbonyl stretch")
+        confidence = st.number_input("Assignment confidence", value=0.6, min_value=0.0, max_value=1.0, step=0.05)
+        notes = st.text_input("Band notes", value="placeholder band")
+        extra_peaks_raw = st.text_area(
+            "Additional bands (JSON list, optional)",
+            value="",
+            help="Provide an array of extra IR bands to echo through the stub.",
+        )
+        actor = st.text_input("Actor (IR)", value="lab-operator")
+        submitted = st.form_submit_button("Run IR stub", use_container_width=True)
+
+    if submitted:
+        peak_entry = {
+            "wavenumber_cm_1": wavenumber,
+            "intensity": intensity,
+            "assignment": assignment or None,
+            "confidence": confidence,
+            "notes": notes or None,
+        }
+        peaks = [peak_entry]
+        if extra_peaks_raw.strip():
+            peaks.extend(_safe_parse_json_list(extra_peaks_raw, fallback=default_peaks))
+        with st.spinner("Running spectroscopy.ir_stub..."):
+            try:
+                result = run_module_job(
+                    module_key="spectroscopy",
+                    operation="ir_stub",
+                    params={
+                        "sample_id": sample_id,
+                        "chemical_formula": chemical_formula,
+                        "peak_list": peaks,
+                    },
+                    actor=actor,
+                    experiment_name=experiment_name,
+                )
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                st.error(f"IR stub failed: {exc}")
+            else:
+                _render_spectroscopy_stub_results(result, mode, "IR")
+
+
+def _render_spectroscopy_stub_panel(meta_registry: MetadataRegistry, mode: str) -> None:
+    meta = meta_registry.get("spectroscopy")
+
+    st.markdown("#### Spectroscopy stubs (NMR + IR)")
+    if is_learner(mode):
+        st.info(
+            "NMR peaks map chemical environments while IR bands highlight functional group vibrations. These stub runners echo "
+            "your inputs so you can practice capturing spectra schemas without touching production data."
+        )
+    elif is_lab(mode):
+        show_lab_mode_note("Enter peak or band details and run the stub; results stay lightweight for quick checks.")
+    else:
+        st.caption("Builder mode exposes registry toggles and raw stub outputs for debugging.")
+
+    if is_builder(mode) and meta:
+        render_debug_toggle(
+            "Show spectroscopy registry metadata",
+            key="spectroscopy_registry_metadata",
+            payload=meta.to_dict(),
+        )
+
+    nmr_tab, ir_tab = st.tabs(["NMR", "IR"])
+    with nmr_tab:
+        _render_nmr_stub_form(mode)
+    with ir_tab:
+        _render_ir_stub_form(mode)
 
 
 def _job_dataset_ids(job: Job) -> list[str]:
@@ -366,6 +590,17 @@ def _truncate(text: str, length: int = 140) -> str:
     if len(text) <= length:
         return text
     return text[: length - 1].rstrip() + "…"
+
+
+def _templates_for_module(module_id: str) -> list[dict[str, object]]:
+    return [tpl for tpl in EXPERIMENT_TEMPLATES if tpl.get("module_id") == module_id]
+
+
+def _apply_template_prefill(prefix: str, template: Mapping[str, object]) -> None:
+    prefill = cast(Mapping[str, object], template.get("prefill", {}))
+    st.session_state[f"{prefix}_prefill"] = dict(prefill)
+    for field, value in prefill.items():
+        st.session_state[f"{prefix}_{field}"] = value
 
 
 def _render_create_experiment_form() -> None:
@@ -910,6 +1145,7 @@ def _render_calorimetry_results(
 
 def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str) -> None:
     meta = meta_registry.get("pchem.calorimetry")
+    templates = _templates_for_module("pchem.calorimetry")
 
     st.markdown("#### Run Calorimetry Workflow (beta)")
     if is_learner(mode):
@@ -929,6 +1165,46 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         if st.checkbox("Show calorimetry registry metadata", key="calorimetry_registry"):
             st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
 
+    template_options = ["Custom run"] + [str(tpl.get("name", tpl.get("key", "template"))) for tpl in templates]
+    selected_template = st.selectbox(
+        "Start from Template",
+        options=template_options,
+        help="Prefill module parameters using saved experiment templates.",
+        key="pchem_template_choice",
+    )
+
+    selected_template_payload: Mapping[str, object] | None = None
+    selected_template_key = "custom"
+    for tpl in templates:
+        if tpl.get("name") == selected_template:
+            selected_template_payload = tpl
+            selected_template_key = str(tpl.get("key", tpl.get("name", "custom")))
+            break
+
+    last_template_key = st.session_state.get("pchem_last_template")
+    if selected_template_key != last_template_key:
+        st.session_state.pchem_last_template = selected_template_key
+        if selected_template_payload:
+            _apply_template_prefill("pchem", selected_template_payload)
+        else:
+            st.session_state.pop("pchem_template_prefill", None)
+
+    template_prefill = cast(Mapping[str, object], st.session_state.get("pchem_template_prefill", {}))
+
+    if selected_template_payload:
+        description = str(selected_template_payload.get("description", ""))
+        if is_learner(mode):
+            st.info(f"Template guide: {description}")
+        elif is_lab(mode):
+            st.caption(f"Template: {description}")
+        else:
+            st.caption(description)
+            render_debug_toggle(
+                "Show template JSON",
+                key="pchem_template_json",
+                payload=selected_template_payload,
+            )
+
     if is_learner(mode):
         st.markdown("##### How this works")
         show_experiment_explanation()
@@ -940,11 +1216,33 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         default_name = f"Calorimetry Demo {datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
 
     with st.form("pchem_calorimetry_form", clear_on_submit=False):
-        experiment_name = st.text_input("Experiment Name", value=default_name)
-        sample_id = st.text_input("Sample ID", value="SAMPLE-STUB")
-        delta_t = st.number_input("Delta T (C)", value=3.5, step=0.1)
-        heat_capacity = st.number_input("Heat Capacity (J/g*C)", value=4.18, step=0.01)
-        actor = st.text_input("Actor", value="lab-operator")
+        experiment_name = st.text_input(
+            "Experiment Name",
+            value=str(template_prefill.get("experiment_name", default_name)),
+            key="pchem_experiment_name",
+        )
+        sample_id = st.text_input(
+            "Sample ID",
+            value=str(template_prefill.get("sample_id", "SAMPLE-STUB")),
+            key="pchem_sample_id",
+        )
+        delta_t = st.number_input(
+            "Delta T (C)",
+            value=float(template_prefill.get("delta_t", 3.5)),
+            step=0.1,
+            key="pchem_delta_t",
+        )
+        heat_capacity = st.number_input(
+            "Heat Capacity (J/g*C)",
+            value=float(template_prefill.get("heat_capacity", 4.18)),
+            step=0.01,
+            key="pchem_heat_capacity",
+        )
+        actor = st.text_input(
+            "Actor",
+            value=str(template_prefill.get("actor", "lab-operator")),
+            key="pchem_actor",
+        )
         submitted = st.form_submit_button("Run calorimetry workflow", use_container_width=True)
 
     if submitted:
@@ -964,6 +1262,9 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
                 )
             except Exception as exc:  # pragma: no cover - UI feedback path
                 st.error(f"Calorimetry workflow failed: {exc}")
+                if is_builder(mode):
+                    with st.expander("Show traceback", expanded=False):
+                        st.code(traceback.format_exc())
             else:
                 dataset_label = result.dataset.id if result.dataset else "dataset-pending"
                 st.success(f"Job {result.job.id} completed; produced {dataset_label}.")
@@ -1053,16 +1354,18 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
             st.markdown("Operations")
             for op in descriptor.operations.values():
                 st.markdown(f"- `{op.name}` — {op.description}")
-            st.button(
-                "Run (coming soon)",
-                disabled=True,
-                help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
-            )
+            if descriptor.module_id == "spectroscopy":
+                _render_spectroscopy_stub_panel(metadata_registry, mode)
+            elif descriptor.module_id == "pchem.calorimetry":
+                _render_pchem_calorimetry_runner(metadata_registry, mode)
+            else:
+                st.button(
+                    "Run (coming soon)",
+                    disabled=True,
+                    help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
+                )
         else:
             st.write("_No operations registered._")
-
-            if descriptor.module_id == "pchem.calorimetry":
-                _render_pchem_calorimetry_runner(metadata_registry, mode)
 
         if is_builder(mode):
             st.markdown("#### Debug payloads")
@@ -1147,7 +1450,7 @@ def render_control_panel() -> None:
     elif section == "Audit Log":
         _render_audit_log(audit_events, mode)
     elif section == "Workspace":
-        render_workspace(experiments, jobs, mode)
+        render_workspace(experiments, jobs, datasets, mode)
     elif section == "Drawing Tool":
         render_drawing_tool(mode)
 

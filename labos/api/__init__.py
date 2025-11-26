@@ -15,6 +15,7 @@ from .interfaces import (
     PropertyRequest,
     SpectrumRequest,
 )
+from .internal import run_ei_ms_analysis, run_pchem_calorimetry
 
 __all__ = [
     "AbstractModelClient",
@@ -25,4 +26,6 @@ __all__ = [
     "ModelTimeoutError",
     "PropertyRequest",
     "SpectrumRequest",
+    "run_ei_ms_analysis",
+    "run_pchem_calorimetry",
 ]

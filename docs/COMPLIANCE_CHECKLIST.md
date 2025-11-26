@@ -35,3 +35,8 @@ Use this list before merging or promoting work between phases. Status tags: ✅ 
 - ✅ Role-based constraints cross-checked with `SWARM_PERMISSIONS_MATRIX.md` when introducing new capabilities.
 - ◐ Signature stub (`labos.core.signature.Signature`) applied before release notes that impact regulated data; production signature policy TBD.
 - ☐ Enforce research-only workspace tagging by default; clinical deployment will require separate validated build and boundary controls.
+
+## UI & User Data Security
+- ☐ Sanitize and encode user inputs before rendering in UI components or persisting to logs/storage.
+- ☐ Reject or neutralize unsafe content (scripts, embedded HTML, serialized objects) in uploads and free-text fields.
+- ☐ Avoid `eval`/`exec` or other dynamic execution of user-derived strings; use constrained parsers instead.
