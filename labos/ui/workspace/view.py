@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover - allows tests to run without de
 
 st: Any = cast(Any, _streamlit)
 
+from labos.datasets import Dataset
 from labos.experiments import Experiment
 from labos.jobs import Job, JobStatus
 from labos.ui.components import mode_badge, section_header, spaced_columns, subtle_divider
@@ -71,12 +72,10 @@ def _job_timestamp(job: Job) -> str:
     return _parse_timestamp(cast(Optional[str], getattr(job, "created_at", None)))
 
 
-def _job_sort_key(job: Job) -> str:
-    for field in ("updated_at", "completed_at", "started_at", "created_at"):
-        value = getattr(job, field, None)
-        if value:
-            return cast(str, value)
-    return ""
+def _dataset_timestamp(dataset: Dataset) -> str:
+    if getattr(dataset, "updated_at", None):
+        return _parse_timestamp(cast(Optional[str], dataset.updated_at))
+    return _parse_timestamp(cast(Optional[str], getattr(dataset, "created_at", None)))
 
 
 def _extract_dataset_ids(job: Job) -> list[str]:
@@ -192,7 +191,12 @@ def _render_experiment_block(experiment: Experiment, jobs: Sequence[Job], *, bui
                 st.json(experiment.to_dict())
 
 
-def render_workspace(experiments: Sequence[Experiment], jobs: Sequence[Job], mode: str) -> None:
+def render_workspace(
+    experiments: Sequence[Experiment],
+    jobs: Sequence[Job],
+    datasets: Sequence[Dataset],
+    mode: str,
+) -> None:
     """Render workspace area with experiments and job history."""
 
     builder = mode == "Builder"
@@ -202,24 +206,71 @@ def render_workspace(experiments: Sequence[Experiment], jobs: Sequence[Job], mod
     with header_cols[1]:
         section_header(
             "Workspace",
-            "Review experiments alongside their recorded jobs and statuses.",
+            "Review experiments alongside their recorded datasets, jobs, and statuses.",
             icon="🗂️",
         )
 
-    col1, col2, col3 = st.columns([1, 1, 1.5])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1.5])
     col1.metric("Experiments", len(experiments))
     col2.metric("Jobs", len(jobs))
+    col3.metric("Datasets", len(datasets))
     latest_timestamp = None
     for job in sorted(jobs, key=lambda j: getattr(j, "updated_at", ""), reverse=True):
         latest_timestamp = _job_timestamp(job)
         break
-    col3.metric("Latest job update", latest_timestamp or "—")
+    col4.metric("Latest job update", latest_timestamp or "—")
+
+    st.markdown("#### Datasets")
+    if not datasets:
+        st.info("Datasets will appear here after workflows write dataset manifests.")
+    else:
+        dataset_rows = [
+            {
+                "Dataset": ds.record_id,
+                "Experiment": str(getattr(ds, "metadata", {}).get("experiment_id", "—")),
+                "Job": str(getattr(ds, "metadata", {}).get("job_id", "—")),
+                "Module": str(getattr(ds, "metadata", {}).get("module_key", "—")),
+                "Timestamp": _dataset_timestamp(ds),
+            }
+            for ds in datasets
+        ]
+        st.dataframe(dataset_rows, hide_index=True, use_container_width=True)
+
+        selected_dataset = st.selectbox(
+            "Inspect dataset",
+            options=[row["Dataset"] for row in dataset_rows],
+            help="Open a dataset manifest to review provenance and links.",
+        )
+        dataset_map = {ds.record_id: ds for ds in datasets}
+        if selected_dataset and selected_dataset in dataset_map:
+            ds_obj = dataset_map[selected_dataset]
+            with st.expander(f"Dataset details — {selected_dataset}", expanded=mode == "Builder"):
+                friendly_rows = [
+                    {"Field": "Dataset ID", "Value": ds_obj.record_id},
+                    {
+                        "Field": "Experiment ID",
+                        "Value": getattr(ds_obj, "metadata", {}).get("experiment_id", "—"),
+                    },
+                    {"Field": "Job ID", "Value": getattr(ds_obj, "metadata", {}).get("job_id", "—")},
+                    {
+                        "Field": "Module Key",
+                        "Value": getattr(ds_obj, "metadata", {}).get("module_key", "—"),
+                    },
+                    {
+                        "Field": "Timestamp",
+                        "Value": _dataset_timestamp(ds_obj),
+                    },
+                ]
+                st.table(friendly_rows)
+                if mode == "Builder":
+                    with st.expander("Show raw dataset JSON", expanded=False):
+                        st.json(ds_obj.to_dict())
 
     subtle_divider()
     _render_run_log(jobs, builder=builder)
 
     if not experiments:
-        st.info("No experiments recorded yet. Run a workflow to see experiments and jobs appear here.")
+        st.info("No experiments recorded yet. Run a workflow to see experiments, datasets, and jobs appear here.")
         return
 
     experiment_index = {exp.record_id: exp for exp in experiments}
