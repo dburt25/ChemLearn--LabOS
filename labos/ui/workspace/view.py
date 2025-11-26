@@ -140,6 +140,39 @@ def _render_experiment_header(experiment: Experiment) -> None:
     st.caption(f"Created: {created} • Updated: {updated} • Owner: {experiment.user_id}")
 
 
+def _render_run_log(jobs: Sequence[Job], *, builder: bool) -> None:
+    with st.container():
+        section_header(
+            "Run Log",
+            "Chronological record of every job across experiments.",
+            icon="🧾",
+        )
+        if not jobs:
+            st.info("No jobs have been recorded yet.")
+            return
+
+        columns = spaced_columns([1.4, 1.3, 1.4, 1.6, 1.1], gap="small")
+        columns[0].markdown("**Timestamp**")
+        columns[1].markdown("**Module key**")
+        columns[2].markdown("**Experiment ID**")
+        columns[3].markdown("**Job ID**")
+        columns[4].markdown("**Status**")
+
+        for job in sorted(jobs, key=_job_sort_key, reverse=True):
+            row = spaced_columns([1.4, 1.3, 1.4, 1.6, 1.1], gap="small")
+            row[0].markdown(f"`{_job_timestamp(job)}`")
+            row[1].markdown(f"`{job.module_id}`")
+            row[2].markdown(f"`{job.experiment_id}`")
+            row[3].markdown(f"`{job.record_id}`")
+            row[4].markdown(
+                f"<span style='color:{_job_status_color(job.status)};font-weight:600'>{_job_status_label(job.status)}</span>",
+                unsafe_allow_html=True,
+            )
+            if builder:
+                with st.expander(f"Inspect job {job.record_id}", expanded=False):
+                    st.json(job.to_dict())
+
+
 def _render_experiment_block(experiment: Experiment, jobs: Sequence[Job], *, builder: bool) -> None:
     with st.container():
         _render_experiment_header(experiment)
@@ -232,6 +265,9 @@ def render_workspace(
                 if mode == "Builder":
                     with st.expander("Show raw dataset JSON", expanded=False):
                         st.json(ds_obj.to_dict())
+
+    subtle_divider()
+    _render_run_log(jobs, builder=builder)
 
     if not experiments:
         st.info("No experiments recorded yet. Run a workflow to see experiments, datasets, and jobs appear here.")
