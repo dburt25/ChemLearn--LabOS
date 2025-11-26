@@ -34,6 +34,7 @@ from labos.jobs import Job
 from labos.modules import ModuleDescriptor, ModuleRegistry, get_registry
 from labos.runtime import LabOSRuntime
 from labos.ui.drawing_tool import render_drawing_tool
+from labos.ui.view import extract_dataset_ids
 from labos.ui.components import (
     mode_badge,
     render_method_footer,
@@ -164,6 +165,25 @@ def _init_session_state() -> None:
         st.session_state.method_metadata_registry = MetadataRegistry.with_phase0_defaults()
 
 
+def _registered_module_entries(
+    registry: ModuleRegistry, metadata_registry: MetadataRegistry
+) -> list[tuple[str, ModuleDescriptor | None, ModuleMetadata | None]]:
+    module_ids = set(metadata_registry.list_keys())
+    entries: list[tuple[str, ModuleDescriptor | None, ModuleMetadata | None]] = []
+
+    for module_id in sorted(module_ids):
+        descriptor: ModuleDescriptor | None = None
+        try:
+            descriptor = registry.ensure_module_loaded(module_id)
+        except NotFoundError:
+            descriptor = None
+
+        meta = metadata_registry.get_metadata_optional(module_id)
+        entries.append((module_id, descriptor, meta))
+
+    return entries
+
+
 def _generate_experiment_id() -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     return f"exp-{timestamp}"
@@ -206,12 +226,12 @@ def _render_mode_banner(
     datasets: Sequence[Dataset],
     jobs: Sequence[Job],
     registry: ModuleRegistry,
+    metadata_registry: MetadataRegistry,
 ) -> None:
     profile = MODE_PROFILES.get(st.session_state.mode, MODE_PROFILES[MODES[0]])
     callout_name = str(profile.get("callout", "info"))
     callout = getattr(st, callout_name, st.info)
-    modules: dict[str, ModuleDescriptor] = cast(dict[str, ModuleDescriptor], getattr(registry, "_modules", {}))
-    modules_count = len(modules)
+    modules_count = len(_registered_module_entries(registry, metadata_registry))
     message_template = str(profile.get("message", ""))
     message = message_template.format(
         experiments=len(experiments),
@@ -599,18 +619,7 @@ def _render_spectroscopy_stub_panel(meta_registry: MetadataRegistry, mode: str) 
 
 
 def _job_dataset_ids(job: Job) -> list[str]:
-    ids: list[str] = []
-    params_obj = getattr(job, "parameters", None)
-    if not isinstance(params_obj, Mapping):
-        return ids
-    parameters = cast(Mapping[str, object], params_obj)
-    maybe_many = parameters.get("dataset_ids")
-    if isinstance(maybe_many, Sequence) and not isinstance(maybe_many, (str, bytes, bytearray)):
-        ids.extend(str(item) for item in cast(Sequence[object], maybe_many))
-    maybe_one = parameters.get("dataset_id")
-    if maybe_one is not None:
-        ids.append(str(maybe_one))
-    return list(dict.fromkeys(ids))
+    return extract_dataset_ids(job)
 
 
 def _find_audit_by_id(
@@ -809,6 +818,7 @@ def _render_overview(
     datasets: Sequence[Dataset],
     jobs: Sequence[Job],
     registry: ModuleRegistry,
+    metadata_registry: MetadataRegistry,
     mode: str,
 ) -> None:
     section_header("Overview", "Cross-panel snapshot of experiments, jobs, and datasets.", icon="📊")
@@ -852,15 +862,15 @@ def _render_overview(
             st.info("No experiments registered yet. Use the sidebar flow or CLI to add one.")
     with module_col:
         st.markdown("#### Modules summary")
-        modules = cast(dict[str, ModuleDescriptor], getattr(registry, "_modules", {}))
-        if modules:
+        module_entries = _registered_module_entries(registry, metadata_registry)
+        if module_entries:
             module_rows: list[dict[str, object]] = []
-            for descriptor in list(modules.values())[:5]:
+            for module_id, descriptor, _meta in module_entries[:5]:
                 module_rows.append(
                     {
-                        "Module": descriptor.module_id,
-                        "Version": descriptor.version,
-                        "Ops": len(descriptor.operations),
+                        "Module": module_id,
+                        "Version": descriptor.version if descriptor else "unknown",
+                        "Ops": len(descriptor.operations) if descriptor else 0,
                     }
                 )
             st.dataframe(module_rows, use_container_width=True)
@@ -1331,19 +1341,18 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
     if tip:
         st.caption(tip)
 
-    modules = cast(dict[str, ModuleDescriptor], getattr(registry, "_modules", {}))
+    module_entries = _registered_module_entries(registry, metadata_registry)
     metadata_map = {meta.key: meta for meta in metadata_registry.all()}
 
-    if modules:
+    if module_entries:
         summary_rows: list[dict[str, object]] = []
-        for module_id, descriptor in sorted(modules.items()):
-            meta = metadata_map.get(module_id)
+        for module_id, descriptor, meta in module_entries:
             summary_rows.append(
                 {
                     "Module": meta.display_name if meta else module_id,
                     "Key": module_id,
                     "Method": meta.method_name if meta else "Pending metadata",
-                    "Ops": len(descriptor.operations),
+                    "Ops": len(descriptor.operations) if descriptor else 0,
                     "Citation": _truncate(meta.primary_citation if meta else "Awaiting citation"),
                     "Limitations": _truncate(meta.limitations if meta else "Add limitations"),
                 }
@@ -1365,18 +1374,23 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
         "Future waves will add Run buttons that execute operations into Jobs/Datasets.",
         icon="🔎",
     ):
-        module_ids = sorted(modules.keys())
+        module_ids = [module_id for module_id, _descriptor, _meta in module_entries]
         selected_module = st.selectbox(
             "Select module",
             options=module_ids,
             help="Review descriptor details before wiring jobs or experiments to it.",
         )
 
-        descriptor = modules.get(selected_module)
+        entry = next((item for item in module_entries if item[0] == selected_module), None)
+        if entry is None:
+            st.warning("Selected module descriptor not found.")
+            return
+
+        descriptor = entry[1]
+        meta = metadata_map.get(selected_module)
         if descriptor is None:
             st.warning("Selected module descriptor not found.")
             return
-        meta = metadata_map.get(descriptor.module_id)
 
         if is_lab(mode):
             show_lab_mode_note(
@@ -1472,13 +1486,13 @@ def render_control_panel() -> None:
 
     _render_header()
     _render_sidebar()
-    _render_mode_banner(experiments, datasets, jobs, module_registry)
+    _render_mode_banner(experiments, datasets, jobs, module_registry, method_metadata_registry)
 
     section = st.session_state.get("current_section", "Overview")
     mode = st.session_state.mode
 
     if section == "Overview":
-        _render_overview(experiments, datasets, jobs, module_registry, mode)
+        _render_overview(experiments, datasets, jobs, module_registry, method_metadata_registry, mode)
     elif section == "Experiments":
         _render_experiments(experiments, mode)
     elif section == "Jobs":

@@ -24,6 +24,7 @@ st: Any = cast(Any, _streamlit)
 from labos.datasets import Dataset
 from labos.experiments import Experiment
 from labos.jobs import Job, JobStatus
+from labos.ui.view import extract_dataset_ids
 from labos.ui.components import mode_badge, section_header, spaced_columns, subtle_divider
 
 
@@ -78,21 +79,6 @@ def _dataset_timestamp(dataset: Dataset) -> str:
     return _parse_timestamp(cast(Optional[str], getattr(dataset, "created_at", None)))
 
 
-def _extract_dataset_ids(job: Job) -> list[str]:
-    ids: list[str] = []
-    params_obj = getattr(job, "parameters", None)
-    if not isinstance(params_obj, Mapping):
-        return ids
-    parameters = cast(Mapping[str, object], params_obj)
-    maybe_many = parameters.get("dataset_ids")
-    if isinstance(maybe_many, Sequence) and not isinstance(maybe_many, (str, bytes, bytearray)):
-        ids.extend(str(item) for item in maybe_many)
-    maybe_one = parameters.get("dataset_id")
-    if maybe_one is not None:
-        ids.append(str(maybe_one))
-    return list(dict.fromkeys(ids))
-
-
 def _job_description(job: Job) -> str:
     params: Mapping[str, object] = cast(Mapping[str, object], getattr(job, "parameters", {}) or {})
     for key in ("summary", "description", "notes"):
@@ -100,7 +86,7 @@ def _job_description(job: Job) -> str:
         if isinstance(candidate, str) and candidate.strip():
             return _truncate(candidate.strip())
 
-    datasets = _extract_dataset_ids(job)
+    datasets = extract_dataset_ids(job)
     if datasets:
         return f"Linked datasets: {', '.join(datasets)}"
 
