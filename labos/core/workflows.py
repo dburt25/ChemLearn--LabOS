@@ -32,6 +32,12 @@ def _prefixed_id(prefix: str) -> str:
     return f"{prefix}-{timestamp}"
 
 
+def _validate_module_key(module_key: str) -> str:
+    if not isinstance(module_key, str) or not module_key.strip():
+        raise ValueError("module_key must be a non-empty string")
+    return module_key
+
+
 def _coerce_registry(
     registry: ModuleRegistry | OperationRegistry | None,
 ) -> ModuleRegistry:
@@ -50,7 +56,7 @@ def _coerce_registry(
 
 @dataclass(slots=True)
 class WorkflowResult:
-    """Container for high-level workflow executions."""
+    """Outcome of a workflow run, including lineage and error context."""
 
     experiment: Experiment
     job: Job
@@ -60,9 +66,13 @@ class WorkflowResult:
     error: str | None = None
 
     def succeeded(self) -> bool:
+        """Return ``True`` when the module completed without error."""
+
         return self.error is None
 
     def to_dict(self) -> Dict[str, object]:
+        """Serialize the workflow result for logging or API responses."""
+
         return {
             "experiment": self.experiment.to_dict(),
             "job": self.job.to_dict(),
@@ -77,8 +87,10 @@ class WorkflowResult:
 def _normalize_params(params: Mapping[str, object] | None) -> Dict[str, object]:
     """Ensure parameters are dict-like with stringified keys."""
 
-    if not params:
+    if params is None:
         return {}
+    if not isinstance(params, Mapping):
+        raise TypeError("params must be a mapping of argument names to values")
     return {str(key): value for key, value in params.items()}
 
 
@@ -175,6 +187,8 @@ def _audit_from_dict(
     detail_dict = dict(details) if isinstance(details, Mapping) else {}
     detail_dict.setdefault("module_key", module_key)
     detail_dict.setdefault("job_id", job.id)
+    detail_dict.setdefault("experiment_id", job.experiment_id)
+    detail_dict.setdefault("status", payload.get("status", "success"))
 
     return AuditEvent(
         id=str(payload.get("id") or _prefixed_id("AUD")),
@@ -187,12 +201,13 @@ def _audit_from_dict(
 
 
 def run_module_job(
-    *,
     module_key: str,
-    operation: str = "compute",
     params: Mapping[str, object] | None = None,
-    actor: str = "labos.workflow",
+    *,
+    experiment_id: str | None = None,
     experiment: Experiment | None = None,
+    operation: str = "compute",
+    actor: str = "labos.workflow",
     experiment_name: Optional[str] = None,
     experiment_owner: str = "local-user",
     experiment_mode: ExperimentMode | str = ExperimentMode.LAB,
@@ -200,17 +215,48 @@ def run_module_job(
     job_id: Optional[str] = None,
     module_registry: ModuleRegistry | OperationRegistry | None = None,
 ) -> WorkflowResult:
-    """Run a registered module operation and capture Experiment/Job lineage."""
+    """Run a module operation and wire Experiment → Job → Dataset → Audit.
 
+    Args:
+        module_key: Registry key for the module to execute.
+        params: Parameters forwarded to the module operation.
+        experiment_id: Optional existing experiment identifier to attach to.
+        experiment: Optional experiment object. When omitted, a new experiment is created.
+        operation: Operation name registered for the module (defaults to ``"compute"``).
+        actor: Identifier for the actor performing the run (used in audit events).
+        experiment_name: Friendly name used when creating a new experiment.
+        experiment_owner: Owner field for new experiments.
+        experiment_mode: Mode value for new experiments.
+        datasets_in: Optional dataset identifiers to associate as inputs.
+        job_id: Optional explicit job identifier.
+        module_registry: Optional registry override (metadata-aware or runtime registry).
+
+    Returns:
+        WorkflowResult containing the created Experiment, Job, DatasetRef, and AuditEvent list.
+
+    Side Effects:
+        - Creates an Experiment when none is supplied.
+        - Registers a Job linked to the experiment.
+        - Persists a DatasetRef for module outputs (placeholder when absent).
+        - Emits AuditEvents describing success or failure lineage.
+    """
+
+    _validate_module_key(module_key)
     registry = _coerce_registry(module_registry)
     resolved_params = _normalize_params(params)
     inferred_inputs = _extract_input_dataset_ids(resolved_params)
     all_inputs = list(dict.fromkeys(list(datasets_in or []) + inferred_inputs))
 
+    if experiment and experiment_id and experiment.id != experiment_id:
+        raise ValueError(
+            "experiment_id does not match the provided experiment object"
+        )
+
     experiment_obj = experiment or create_experiment(
         name=experiment_name or f"{module_key} workflow",
         owner=experiment_owner,
         mode=experiment_mode,
+        experiment_id=experiment_id,
     )
 
     job = _create_job_record(
@@ -233,27 +279,49 @@ def run_module_job(
     storage.upsert_experiment(experiment_obj)
     storage.upsert_job(job)
 
-    try:
-        raw_output = registry.run(module_key, operation, resolved_params)
-    except ModuleExecutionError as exc:
-        job.finish(success=False, outputs=None, error=str(exc))
+    def _finalize_failure(error_message: str) -> WorkflowResult:
+        placeholder = _build_placeholder_dataset(
+            module_key,
+            label="Module output unavailable",
+        )
+        placeholder.metadata.update(
+            {
+                "placeholder_reason": "module_failed",
+                "error": error_message,
+            }
+        )
+        storage.save_dataset_record(placeholder, None)
+        job.finish(success=False, outputs=[placeholder.id], error=error_message)
         experiment_obj.mark_failed()
         storage.upsert_job(job)
         storage.upsert_experiment(experiment_obj)
         failure_event = log_event_for_job(
             job,
             action="module-run-failed",
-            details={"module_key": module_key, "operation": operation, "error": str(exc)},
+            details={
+                "module_key": module_key,
+                "operation": operation,
+                "status": "failed",
+                "error": error_message,
+                "experiment_id": experiment_obj.id,
+                "dataset_id": placeholder.id,
+            },
             actor=actor,
         )
+        link_event = link_job_to_dataset(job.id, placeholder.id, direction="out")
         return WorkflowResult(
             experiment=experiment_obj,
             job=job,
-            dataset=None,
-            audit_events=[failure_event],
+            dataset=placeholder,
+            audit_events=[failure_event, link_event],
             module_output=None,
-            error=str(exc),
+            error=error_message,
         )
+
+    try:
+        raw_output = registry.run(module_key, operation, resolved_params)
+    except ModuleExecutionError as exc:
+        return _finalize_failure(str(exc))
 
     if isinstance(raw_output, Mapping):
         module_output: Dict[str, object] = dict(raw_output)
@@ -266,6 +334,7 @@ def run_module_job(
         dataset_ref = _dataset_from_dict(dataset_payload, module_key=module_key)
     else:
         dataset_ref = _build_placeholder_dataset(module_key)
+        dataset_ref.metadata.setdefault("placeholder_reason", "no_dataset_payload")
     storage.save_dataset_record(dataset_ref, dataset_payload)
 
     job.finish(success=True, outputs=[dataset_ref.id])
@@ -282,7 +351,13 @@ def run_module_job(
             log_event_for_job(
                 job,
                 action="module-run",
-                details={"module_key": module_key, "operation": operation},
+                details={
+                    "module_key": module_key,
+                    "operation": operation,
+                    "status": "success",
+                    "experiment_id": experiment_obj.id,
+                    "dataset_id": dataset_ref.id,
+                },
                 actor=actor,
             )
         )
@@ -294,7 +369,12 @@ def run_module_job(
             actor=actor,
             action="attach-job",
             target=experiment_obj.id,
-            details={"job_id": job.id, "dataset_id": dataset_ref.id, "module_key": module_key},
+            details={
+                "job_id": job.id,
+                "dataset_id": dataset_ref.id,
+                "module_key": module_key,
+                "experiment_id": experiment_obj.id,
+            },
         )
     )
 
