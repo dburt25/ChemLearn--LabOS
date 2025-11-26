@@ -14,6 +14,16 @@ all side-effects isolated from LabOS core modules.
 - `ExternalPropertyPredictor`: Specialization for molecular property
   predictions powered by `PropertyRequest` inputs.
 
+## Stub Adapters (Phase 2.5.3)
+
+- `DummySpectrumPredictor` and `DummyPropertyPredictor` implement the above
+  interfaces but immediately raise `NotImplementedError` with a clear message.
+- Factory helpers (`get_default_spectrum_predictor`,
+  `get_default_property_predictor`) return these stubs so callers can depend on
+  stable shapes without performing any external calls.
+- No endpoints, tokens, or vendor SDKs are bundled; these classes exist solely
+  to preserve API contracts until real integrations are supplied.
+
 ## Implementation Guidance
 
 1. **Keep dependencies local**: Place vendor-specific code in a separate module
@@ -50,4 +60,5 @@ class ExamplePropertyClient(ExternalPropertyPredictor):
 
 Implementations should include their own lightweight validation to prevent
 malformed requests from reaching external services and to ensure audit logs stay
-consistent across providers.
+consistent across providers. Future phases will replace the dummy adapters with
+real clients configured via environment variables or configuration files.
