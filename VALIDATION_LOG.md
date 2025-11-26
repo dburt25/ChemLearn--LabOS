@@ -4,6 +4,7 @@ Document scientific validation activities once numerical or analytical logic shi
 
 | Date (UTC) | Component | Change Summary | Evidence |
 | --- | --- | --- | --- |
+| 2026-03-07T00:00:00Z | Mode helper predicates | Added regression tests for mode resolution defaults and explicit mode overrides in control panel helpers. | `python -m pytest tests/test_ui_mode_helpers.py` |
 | 2026-03-06T00:00:00Z | Provenance docs | Updated PROVENANCE_GUIDE and compliance checklists to require method_name/primary_citation/dataset_citations and textbook attribution guidance. | Documentation review |
 | 2025-11-22T00:00:00Z | Streamlit Control Panel | Verified `streamlit run app.py` renders the control panel header/sections and placeholder metrics. | Manual run + Streamlit console output |
 | 2025-11-22T00:00:00Z | Core dataclasses | `python -m unittest discover -s tests` (4 tests) covering placeholder instantiations. | Test log in workspace terminal |
