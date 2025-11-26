@@ -30,6 +30,10 @@ def test_run_eims_stub_returns_dataset_and_audit() -> None:
     payload = run_eims_stub()
     _assert_stub_payload(payload, EIMS_KEY)
 
+    # Shim should surface ei_ms.basic_analysis output for compatibility
+    assert "analysis" in payload
+    assert payload["analysis"]["module_key"] == "ei_ms.basic_analysis"
+
 
 def test_run_calorimetry_stub_returns_dataset_and_audit() -> None:
     payload = run_calorimetry_stub()
