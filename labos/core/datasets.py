@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -43,6 +47,34 @@ class DatasetRef:
             "path_hint": self.path_hint,
             "metadata": dict(self.metadata),
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "DatasetRef | None":
+        required = {"id", "label", "created_at"}
+        missing = sorted(required - payload.keys())
+        if missing:
+            logger.warning("Skipping dataset payload missing keys: %s", ", ".join(missing))
+            return None
+
+        try:
+            created_at_raw = payload["created_at"]
+            created_at = created_at_raw if isinstance(created_at_raw, datetime) else datetime.fromisoformat(str(created_at_raw))
+        except Exception as exc:
+            logger.warning("Skipping dataset %s due to timestamp error: %s", payload.get("id", "<unknown>"), exc)
+            return None
+
+        try:
+            return cls(
+                id=str(payload["id"]),
+                label=str(payload["label"]),
+                kind=str(payload.get("kind", "table")),
+                created_at=created_at,
+                path_hint=payload.get("path_hint"),
+                metadata=dict(payload.get("metadata") or {}),
+            )
+        except Exception as exc:
+            logger.warning("Skipping dataset %s due to validation error: %s", payload.get("id", "<unknown>"), exc)
+            return None
 
     @classmethod
     def example(cls, idx: int = 1, kind: str = "table") -> "DatasetRef":
