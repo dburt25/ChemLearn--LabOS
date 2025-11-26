@@ -5,6 +5,7 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 ## [Unreleased]
 ### Added
 - Documented the P-Chem and EI-MS stub expansions, workflow helper coverage, mode-aware UI surfaces, and accompanying test posture updates.
+- Added internal runtime usage guide covering the LabOSRuntime facade for experiments, datasets, and module operations.
 - Added a CLI usage guide and README pointers covering both persistent and demo commands.
 ### Changed
 - Phase 2 – Wave 2: import wizard + provenance helpers now link stub outputs into job/dataset/audit chains.

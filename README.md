@@ -52,3 +52,7 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 ## Notes
 - Modules can also be auto-discovered via `LABOS_MODULES` (comma-separated import paths) when you want to load external plugins.
 - All outputs are educational only until validation dossiers are produced; keep audit logs current and prefer deterministic examples for demos.
+
+## Programmatic API
+- Use `LabOSRuntime` from `labos.runtime` to access the config loader, audit logger, registries, and job runner as a single facade.
+- See `docs/api/internal_usage.md` for examples of creating experiments, registering datasets, and running module operations in code.
