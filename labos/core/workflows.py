@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 from uuid import uuid4
 
+from . import storage
 from .audit import AuditEvent
 from .datasets import DatasetRef
 from .errors import ModuleExecutionError
@@ -118,7 +119,7 @@ def create_experiment(
 
     resolved_mode = ExperimentMode(mode) if isinstance(mode, str) else mode
     resolved_status = ExperimentStatus(status) if isinstance(status, str) else status
-    return Experiment(
+    experiment = Experiment(
         id=experiment_id or _prefixed_id("EXP"),
         name=name,
         owner=owner,
@@ -126,6 +127,7 @@ def create_experiment(
         status=resolved_status,
         metadata=dict(metadata or {}),
     )
+    return storage.upsert_experiment(experiment)
 
 
 def _create_job_record(
@@ -140,6 +142,7 @@ def _create_job_record(
     if not module_key:
         raise ValueError("module_key is required to create a job record")
 
+    storage.upsert_experiment(experiment)
     job = Job(
         id=job_id or _prefixed_id("JOB"),
         experiment_id=experiment.id,
@@ -148,7 +151,8 @@ def _create_job_record(
         datasets_in=list(dict.fromkeys(list(datasets_in or []))),
     )
     experiment.add_job(job.id)
-    return job
+    storage.upsert_experiment(experiment)
+    return storage.upsert_job(job)
 
 
 def _audit_from_dict(
@@ -226,12 +230,16 @@ def run_module_job(
 
     experiment_obj.mark_running()
     job.start()
+    storage.upsert_experiment(experiment_obj)
+    storage.upsert_job(job)
 
     try:
         raw_output = registry.run(module_key, operation, resolved_params)
     except ModuleExecutionError as exc:
         job.finish(success=False, outputs=None, error=str(exc))
         experiment_obj.mark_failed()
+        storage.upsert_job(job)
+        storage.upsert_experiment(experiment_obj)
         failure_event = log_event_for_job(
             job,
             action="module-run-failed",
@@ -258,9 +266,12 @@ def run_module_job(
         dataset_ref = _dataset_from_dict(dataset_payload, module_key=module_key)
     else:
         dataset_ref = _build_placeholder_dataset(module_key)
+    storage.save_dataset_record(dataset_ref, dataset_payload)
 
     job.finish(success=True, outputs=[dataset_ref.id])
     experiment_obj.mark_completed()
+    storage.upsert_job(job)
+    storage.upsert_experiment(experiment_obj)
 
     audit_events: List[AuditEvent] = []
     audit_payload = module_output.get("audit")
@@ -323,6 +334,7 @@ def create_experiment_with_job(
         mode=mode,
         metadata=dict(experiment_metadata or {}),
     )
+    storage.upsert_experiment(experiment)
 
     job = Job(
         id=job_id,
@@ -333,6 +345,8 @@ def create_experiment_with_job(
     )
 
     experiment.add_job(job.id)
+    experiment = storage.upsert_experiment(experiment)
+    job = storage.upsert_job(job)
     return experiment, job
 
 
