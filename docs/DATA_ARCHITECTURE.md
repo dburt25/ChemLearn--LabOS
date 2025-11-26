@@ -19,6 +19,13 @@ originates or should be materialized (e.g., `data/processed/exp123/features.parq
 will bind these hints to real storage backends and enforce retention/classification policies per
 tier.
 
+## Demo fixtures
+- Synthetic calorimetry walkthrough files live under `data/experiments/`, `data/jobs/`, `data/datasets/`,
+  and `data/audit/` (for example `demo-exp-calorimetry.json`, `demo-job-calorimetry.json`, and
+  `demo-dataset-calorimetry.json`).
+- They are intentionally tiny and fake so the registries and tests can load out-of-the-box without
+  requiring real lab data.
+
 ## Governance Hooks
 - Every write operation logs to the audit stream.
 - Data classified per sensitivity; Clinical Boundary Mode enforces stricter policies.
