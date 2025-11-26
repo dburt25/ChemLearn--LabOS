@@ -8,6 +8,8 @@ database or object store backend without rewriting call sites.
 
 from __future__ import annotations
 
+import os
+from dataclasses import dataclass
 from typing import Dict, Iterable, List, Protocol, runtime_checkable
 
 from .datasets import DatasetRef
@@ -252,3 +254,103 @@ class InMemoryJobStore:
 # during the transition to the new store interfaces.
 NullStorageBackend = NullDatasetStore
 InMemoryStorageBackend = InMemoryDatasetStore
+
+
+def _flag_enabled(raw: str | None) -> bool:
+    if raw is None:
+        return False
+    normalized = raw.strip().lower()
+    return normalized in {"1", "true", "yes", "on"}
+
+
+def storage_enabled() -> bool:
+    """Return True when LABOS_USE_STORE is set to a truthy value."""
+
+    return _flag_enabled(os.getenv("LABOS_USE_STORE"))
+
+
+@dataclass(frozen=True)
+class ActiveStores:
+    datasets: DatasetStore
+    experiments: ExperimentStore
+    jobs: JobStore
+
+
+_ACTIVE_STORES: ActiveStores | None = None
+
+
+def get_active_stores() -> ActiveStores | None:
+    """Return initialized in-memory stores when the storage flag is enabled."""
+
+    global _ACTIVE_STORES
+    if not storage_enabled():
+        return None
+    if _ACTIVE_STORES is None:
+        experiment_store = InMemoryExperimentStore()
+        _ACTIVE_STORES = ActiveStores(
+            datasets=InMemoryDatasetStore(),
+            experiments=experiment_store,
+            jobs=InMemoryJobStore(experiments=experiment_store),
+        )
+    return _ACTIVE_STORES
+
+
+def upsert_experiment(experiment: Experiment) -> Experiment:
+    """Create or update an experiment in the active store when enabled."""
+
+    stores = get_active_stores()
+    if stores is None:
+        return experiment
+    try:
+        return stores.experiments.update_experiment(experiment)
+    except (KeyError, NotImplementedError):
+        try:
+            return stores.experiments.create_experiment(experiment)
+        except ValueError:
+            return stores.experiments.update_experiment(experiment)
+
+
+def upsert_job(job: Job) -> Job:
+    """Create or update a job in the active store when enabled."""
+
+    stores = get_active_stores()
+    if stores is None:
+        return job
+    try:
+        return stores.jobs.update_job(job)
+    except (KeyError, NotImplementedError):
+        try:
+            return stores.jobs.register_job(job)
+        except ValueError:
+            return stores.jobs.update_job(job)
+
+
+def save_dataset_record(dataset_ref: DatasetRef, content: object | None = None) -> DatasetRef:
+    """Persist a dataset reference and optional payload when storage is active."""
+
+    stores = get_active_stores()
+    if stores is None:
+        return dataset_ref
+    stores.datasets.save_dataset(dataset_ref, content if content is not None else dataset_ref.to_dict())
+    return dataset_ref
+
+
+def get_experiment_record(experiment_id: str) -> Experiment | None:
+    stores = get_active_stores()
+    if stores is None:
+        return None
+    return stores.experiments.get_experiment(experiment_id)
+
+
+def get_job_record(job_id: str) -> Job | None:
+    stores = get_active_stores()
+    if stores is None:
+        return None
+    return stores.jobs.get_job(job_id)
+
+
+def get_dataset_record(dataset_id: str) -> object | None:
+    stores = get_active_stores()
+    if stores is None:
+        return None
+    return stores.datasets.load_dataset(dataset_id)
