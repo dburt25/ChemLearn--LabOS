@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, cast
+import traceback
 
 try:  # pragma: no cover - imported at module import time only
     import streamlit as _streamlit  # type: ignore
@@ -1261,6 +1262,9 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
                 )
             except Exception as exc:  # pragma: no cover - UI feedback path
                 st.error(f"Calorimetry workflow failed: {exc}")
+                if is_builder(mode):
+                    with st.expander("Show traceback", expanded=False):
+                        st.code(traceback.format_exc())
             else:
                 dataset_label = result.dataset.id if result.dataset else "dataset-pending"
                 st.success(f"Job {result.job.id} completed; produced {dataset_label}.")
