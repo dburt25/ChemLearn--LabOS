@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Optional, Sequence, cast
+from typing import Any, Mapping, Optional, Sequence, TypeVar, TypedDict, cast
 import traceback
 
 try:  # pragma: no cover - imported at module import time only
@@ -27,7 +27,7 @@ st: Any = cast(Any, _streamlit)
 from labos.config import LabOSConfig
 from labos.core.errors import NotFoundError
 from labos.core.module_registry import ModuleMetadata, ModuleRegistry as MetadataRegistry
-from labos.core.workflows import run_module_job
+from labos.core.workflows import WorkflowResult, run_module_job
 from labos.datasets import Dataset
 from labos.experiments import Experiment
 from labos.jobs import Job
@@ -90,6 +90,24 @@ MODE_PROFILES: dict[str, dict[str, object]] = {
         },
     },
 }
+
+JSONListItem = TypeVar("JSONListItem")
+
+
+class NMRPeak(TypedDict, total=False):
+    shift_ppm: float
+    intensity: float
+    multiplicity: str | None
+    notes: str | None
+
+
+class IRPeak(TypedDict, total=False):
+    wavenumber_cm_1: float
+    intensity: str
+    assignment: str | None
+    confidence: float
+    notes: str | None
+
 
 EXPERIMENT_TEMPLATES: list[dict[str, object]] = [
     {
@@ -360,10 +378,10 @@ def render_debug_toggle(label: str, key: str, payload: Mapping[str, object] | Se
             st.json(list(payload or []))
 
 
-def _safe_parse_json_list(raw_text: str, *, fallback: Optional[Sequence[object]] = None) -> list[object]:
+def _safe_parse_json_list(raw_text: str, *, fallback: Optional[Sequence[JSONListItem]] = None) -> list[JSONListItem]:
     """Parse a JSON list from user input, returning a fallback if parsing fails."""
 
-    fallback_list = list(fallback or [])
+    fallback_list: list[JSONListItem] = list(fallback or [])
     if not raw_text.strip():
         return fallback_list
     try:
@@ -372,7 +390,10 @@ def _safe_parse_json_list(raw_text: str, *, fallback: Optional[Sequence[object]]
         st.warning("Unable to parse the provided list; using defaults instead.")
         return fallback_list
     if isinstance(parsed, list):
-        return list(parsed)
+        parsed_items: list[JSONListItem] = []
+        for item in cast(list[Any], parsed):
+            parsed_items.append(cast(JSONListItem, item))
+        return parsed_items
     st.warning("Expected a JSON array; falling back to defaults.")
     return fallback_list
 
@@ -400,12 +421,25 @@ def show_calorimetry_raw_data(
         st.json(meta.to_dict() if meta else {"message": "No metadata found for pchem.calorimetry."})
 
 
+def _coerce_float(value: object, default: float) -> float:
+    """Best-effort conversion of arbitrary prefill values to float inputs."""
+
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
 def _render_spectroscopy_stub_results(result: "WorkflowResult", mode: str, stub_kind: str) -> None:
     dataset_id = result.dataset.id if result.dataset else "dataset-pending"
     job_id = result.job.id
     st.success(f"{stub_kind} stub job {job_id} completed; dataset {dataset_id} recorded.")
 
-    module_output = result.module_output or {}
+    module_output: Mapping[str, object] = cast(Mapping[str, object], result.module_output or {})
     annotated = cast(Sequence[object] | None, module_output.get("annotated_peaks"))
     annotated_count = len(annotated) if isinstance(annotated, Sequence) else 0
 
@@ -417,10 +451,12 @@ def _render_spectroscopy_stub_results(result: "WorkflowResult", mode: str, stub_
         st.caption(f"{annotated_count} peak entries echoed for verification.")
 
     if is_builder(mode):
+        fallback_payload: Mapping[str, object] = {"message": "No module output returned."}
+        debug_payload: Mapping[str, object] = module_output if module_output else fallback_payload
         render_debug_toggle(
             f"Show raw {stub_kind.lower()} stub output",
             key=f"{stub_kind.lower()}_stub_output_{job_id}",
-            payload=module_output or {"message": "No module output returned."},
+            payload=debug_payload,
         )
     elif is_lab(mode):
         show_lab_mode_note("Raw stub JSON stays tucked away in Lab mode; switch to Builder to inspect schemas.")
@@ -428,7 +464,7 @@ def _render_spectroscopy_stub_results(result: "WorkflowResult", mode: str, stub_
 
 def _render_nmr_stub_form(mode: str) -> None:
     st.markdown("##### NMR stub")
-    default_peaks = [
+    default_peaks: list[NMRPeak] = [
         {"shift_ppm": 7.12, "intensity": 0.8, "multiplicity": "d", "notes": "aromatic"},
     ]
     with st.form("spectroscopy_nmr_stub_form", clear_on_submit=False):
@@ -450,15 +486,16 @@ def _render_nmr_stub_form(mode: str) -> None:
         submitted = st.form_submit_button("Run NMR stub", use_container_width=True)
 
     if submitted:
-        peak_entry = {
+        peak_entry: NMRPeak = {
             "shift_ppm": shift_ppm,
             "intensity": intensity,
             "multiplicity": multiplicity or None,
             "notes": notes or None,
         }
-        peaks = [peak_entry]
+        peaks: list[NMRPeak] = [peak_entry]
         if extra_peaks_raw.strip():
-            peaks.extend(_safe_parse_json_list(extra_peaks_raw, fallback=default_peaks))
+            parsed_peaks = _safe_parse_json_list(extra_peaks_raw, fallback=default_peaks)
+            peaks.extend(parsed_peaks)
         with st.spinner("Running spectroscopy.nmr_stub..."):
             try:
                 result = run_module_job(
@@ -482,7 +519,7 @@ def _render_nmr_stub_form(mode: str) -> None:
 
 def _render_ir_stub_form(mode: str) -> None:
     st.markdown("##### IR stub")
-    default_peaks = [
+    default_peaks: list[IRPeak] = [
         {"wavenumber_cm_1": 1710, "intensity": "strong", "assignment": "C=O stretch", "confidence": 0.6},
     ]
     with st.form("spectroscopy_ir_stub_form", clear_on_submit=False):
@@ -503,16 +540,17 @@ def _render_ir_stub_form(mode: str) -> None:
         submitted = st.form_submit_button("Run IR stub", use_container_width=True)
 
     if submitted:
-        peak_entry = {
+        peak_entry: IRPeak = {
             "wavenumber_cm_1": wavenumber,
             "intensity": intensity,
             "assignment": assignment or None,
             "confidence": confidence,
             "notes": notes or None,
         }
-        peaks = [peak_entry]
+        peaks: list[IRPeak] = [peak_entry]
         if extra_peaks_raw.strip():
-            peaks.extend(_safe_parse_json_list(extra_peaks_raw, fallback=default_peaks))
+            parsed_peaks = _safe_parse_json_list(extra_peaks_raw, fallback=default_peaks)
+            peaks.extend(parsed_peaks)
         with st.spinner("Running spectroscopy.ir_stub..."):
             try:
                 result = run_module_job(
@@ -1190,6 +1228,8 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
             st.session_state.pop("pchem_template_prefill", None)
 
     template_prefill = cast(Mapping[str, object], st.session_state.get("pchem_template_prefill", {}))
+    delta_t_prefill = _coerce_float(template_prefill.get("delta_t"), 3.5)
+    heat_capacity_prefill = _coerce_float(template_prefill.get("heat_capacity"), 4.18)
 
     if selected_template_payload:
         description = str(selected_template_payload.get("description", ""))
@@ -1228,13 +1268,13 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         )
         delta_t = st.number_input(
             "Delta T (C)",
-            value=float(template_prefill.get("delta_t", 3.5)),
+            value=delta_t_prefill,
             step=0.1,
             key="pchem_delta_t",
         )
         heat_capacity = st.number_input(
             "Heat Capacity (J/g*C)",
-            value=float(template_prefill.get("heat_capacity", 4.18)),
+            value=heat_capacity_prefill,
             step=0.01,
             key="pchem_heat_capacity",
         )
