@@ -82,6 +82,41 @@ MODE_PROFILES: dict[str, dict[str, object]] = {
     },
 }
 
+EXPERIMENT_TEMPLATES: list[dict[str, object]] = [
+    {
+        "key": "calorimetry_warmup",
+        "name": "Calorimetry warmup",
+        "module_id": "pchem.calorimetry",
+        "description": (
+            "Prefills a gentle ΔT change and common water heat capacity so learners can see how parameters roll "
+            "into experiment, job, and dataset records."
+        ),
+        "prefill": {
+            "experiment_name": "Calorimetry Warmup",
+            "sample_id": "SAMPLE-HEAT-01",
+            "delta_t": 2.5,
+            "heat_capacity": 4.18,
+            "actor": "learner-operator",
+        },
+    },
+    {
+        "key": "calorimetry_stress",
+        "name": "Calorimetry stress test",
+        "module_id": "pchem.calorimetry",
+        "description": (
+            "Uses a larger ΔT swing to simulate high-variance runs. Great for Lab operators validating data capture "
+            "before production."
+        ),
+        "prefill": {
+            "experiment_name": "Calorimetry Stress",
+            "sample_id": "SAMPLE-HEAT-99",
+            "delta_t": 8.0,
+            "heat_capacity": 3.9,
+            "actor": "lab-operator",
+        },
+    },
+]
+
 
 def _init_session_state() -> None:
     if "mode" not in st.session_state:
@@ -366,6 +401,17 @@ def _truncate(text: str, length: int = 140) -> str:
     if len(text) <= length:
         return text
     return text[: length - 1].rstrip() + "…"
+
+
+def _templates_for_module(module_id: str) -> list[dict[str, object]]:
+    return [tpl for tpl in EXPERIMENT_TEMPLATES if tpl.get("module_id") == module_id]
+
+
+def _apply_template_prefill(prefix: str, template: Mapping[str, object]) -> None:
+    prefill = cast(Mapping[str, object], template.get("prefill", {}))
+    st.session_state[f"{prefix}_prefill"] = dict(prefill)
+    for field, value in prefill.items():
+        st.session_state[f"{prefix}_{field}"] = value
 
 
 def _render_create_experiment_form() -> None:
@@ -910,6 +956,7 @@ def _render_calorimetry_results(
 
 def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str) -> None:
     meta = meta_registry.get("pchem.calorimetry")
+    templates = _templates_for_module("pchem.calorimetry")
 
     st.markdown("#### Run Calorimetry Workflow (beta)")
     if is_learner(mode):
@@ -929,6 +976,46 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         if st.checkbox("Show calorimetry registry metadata", key="calorimetry_registry"):
             st.json(meta.to_dict() if meta else {"message": "No registry entry found for pchem.calorimetry."})
 
+    template_options = ["Custom run"] + [str(tpl.get("name", tpl.get("key", "template"))) for tpl in templates]
+    selected_template = st.selectbox(
+        "Start from Template",
+        options=template_options,
+        help="Prefill module parameters using saved experiment templates.",
+        key="pchem_template_choice",
+    )
+
+    selected_template_payload: Mapping[str, object] | None = None
+    selected_template_key = "custom"
+    for tpl in templates:
+        if tpl.get("name") == selected_template:
+            selected_template_payload = tpl
+            selected_template_key = str(tpl.get("key", tpl.get("name", "custom")))
+            break
+
+    last_template_key = st.session_state.get("pchem_last_template")
+    if selected_template_key != last_template_key:
+        st.session_state.pchem_last_template = selected_template_key
+        if selected_template_payload:
+            _apply_template_prefill("pchem", selected_template_payload)
+        else:
+            st.session_state.pop("pchem_template_prefill", None)
+
+    template_prefill = cast(Mapping[str, object], st.session_state.get("pchem_template_prefill", {}))
+
+    if selected_template_payload:
+        description = str(selected_template_payload.get("description", ""))
+        if is_learner(mode):
+            st.info(f"Template guide: {description}")
+        elif is_lab(mode):
+            st.caption(f"Template: {description}")
+        else:
+            st.caption(description)
+            render_debug_toggle(
+                "Show template JSON",
+                key="pchem_template_json",
+                payload=selected_template_payload,
+            )
+
     if is_learner(mode):
         st.markdown("##### How this works")
         show_experiment_explanation()
@@ -940,11 +1027,33 @@ def _render_pchem_calorimetry_runner(meta_registry: MetadataRegistry, mode: str)
         default_name = f"Calorimetry Demo {datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
 
     with st.form("pchem_calorimetry_form", clear_on_submit=False):
-        experiment_name = st.text_input("Experiment Name", value=default_name)
-        sample_id = st.text_input("Sample ID", value="SAMPLE-STUB")
-        delta_t = st.number_input("Delta T (C)", value=3.5, step=0.1)
-        heat_capacity = st.number_input("Heat Capacity (J/g*C)", value=4.18, step=0.01)
-        actor = st.text_input("Actor", value="lab-operator")
+        experiment_name = st.text_input(
+            "Experiment Name",
+            value=str(template_prefill.get("experiment_name", default_name)),
+            key="pchem_experiment_name",
+        )
+        sample_id = st.text_input(
+            "Sample ID",
+            value=str(template_prefill.get("sample_id", "SAMPLE-STUB")),
+            key="pchem_sample_id",
+        )
+        delta_t = st.number_input(
+            "Delta T (C)",
+            value=float(template_prefill.get("delta_t", 3.5)),
+            step=0.1,
+            key="pchem_delta_t",
+        )
+        heat_capacity = st.number_input(
+            "Heat Capacity (J/g*C)",
+            value=float(template_prefill.get("heat_capacity", 4.18)),
+            step=0.01,
+            key="pchem_heat_capacity",
+        )
+        actor = st.text_input(
+            "Actor",
+            value=str(template_prefill.get("actor", "lab-operator")),
+            key="pchem_actor",
+        )
         submitted = st.form_submit_button("Run calorimetry workflow", use_container_width=True)
 
     if submitted:
