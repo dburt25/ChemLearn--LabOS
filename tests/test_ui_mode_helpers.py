@@ -41,6 +41,18 @@ def test_mode_flags_exact_match_without_session_state():
     assert control_panel.is_learner("lab") is False
 
 
+def test_mode_flags_prefer_explicit_mode_over_session(monkeypatch):
+    stub = DummyStreamlit(mode="Learner")
+    monkeypatch.setattr(control_panel, "st", stub)
+
+    assert control_panel.is_lab("Lab") is True
+    assert control_panel.is_builder("Builder") is True
+    assert control_panel.is_learner("Learner") is True
+    # Explicit mode argument wins even when session state differs.
+    stub.session_state.mode = "Lab"
+    assert control_panel.is_learner("Builder") is False
+
+
 def test_mode_tip_uses_profile_and_fallback(monkeypatch):
     stub = DummyStreamlit(mode="Builder")
     monkeypatch.setattr(control_panel, "st", stub)
@@ -107,3 +119,23 @@ def test_mode_tip_defaults_to_learner_when_section_missing(monkeypatch):
     stub.session_state.mode = "Unknown"
     fallback_tip = control_panel._mode_tip("experiments")
     assert "experiment" in fallback_tip.lower()
+
+
+def test_default_mode_when_session_state_missing(monkeypatch):
+    class BarebonesStreamlit:
+        pass
+
+    monkeypatch.setattr(control_panel, "st", BarebonesStreamlit())
+
+    assert control_panel.is_learner() is True
+    assert control_panel.is_lab() is False
+    assert control_panel.is_builder() is False
+
+
+def test_default_mode_when_session_mode_is_blank(monkeypatch):
+    stub = DummyStreamlit(mode="")
+    monkeypatch.setattr(control_panel, "st", stub)
+
+    assert control_panel.is_learner() is True
+    assert control_panel.is_lab() is False
+    assert control_panel.is_builder() is False
