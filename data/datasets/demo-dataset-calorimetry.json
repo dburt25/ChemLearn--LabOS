@@ -1,0 +1,26 @@
+{
+  "record_id": "demo-dataset-calorimetry",
+  "created_at": "2024-05-01T12:10:00+00:00",
+  "updated_at": "2024-05-01T12:10:00+00:00",
+  "audit_trail": [
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  ],
+  "last_audit_event_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "signature": null,
+  "owner": "demo-user",
+  "dataset_type": "experimental",
+  "uri": "file:data/datasets/demo-dataset-calorimetry.json",
+  "tags": [
+    "demo",
+    "timeseries",
+    "calorimetry"
+  ],
+  "metadata": {
+    "sample_id": "CAL-DEM-001",
+    "module_key": "pchem.calorimetry",
+    "description": "Synthetic calorimetry trace for LabOS demos.",
+    "temperature_unit": "celsius",
+    "time_unit": "seconds",
+    "points_captured": 5
+  }
+}

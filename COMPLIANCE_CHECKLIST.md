@@ -33,6 +33,8 @@ Use this checklist to keep documentation aligned with governance, provenance, an
 - [ ] Sanitize and encode user inputs before rendering in UI components or persisting to logs/storage.
 - [ ] Reject or neutralize unsafe content (scripts, embedded HTML, serialized objects) in uploads and free-text fields.
 - [ ] Avoid `eval`/`exec` or other dynamic execution of user-derived strings; use constrained parsers instead.
+- [ ] Phase 2.5.3: apply basic UI/module input validation (finite numerics, required fields) while deferring clinical-grade
+      validation and monitoring.
 
 ## Auditability
 - [ ] Maintain chain-of-custody via AuditEvent checksums and timestamps.

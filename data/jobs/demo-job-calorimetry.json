@@ -1,0 +1,28 @@
+{
+  "record_id": "demo-job-calorimetry",
+  "created_at": "2024-05-01T12:02:00+00:00",
+  "updated_at": "2024-05-01T12:10:00+00:00",
+  "audit_trail": [
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  ],
+  "last_audit_event_id": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "signature": null,
+  "experiment_id": "demo-exp-calorimetry",
+  "module_id": "pchem.calorimetry",
+  "operation": "compute",
+  "status": "succeeded",
+  "parameters": {
+    "sample_id": "CAL-DEM-001",
+    "delta_t_c": 4.5,
+    "heat_capacity_j_g_k": 4.18
+  },
+  "actor": "demo-runner",
+  "logs": [
+    "Simulated calorimetry trace generated for demo."
+  ],
+  "result_path": "data/datasets/demo-dataset-calorimetry.json",
+  "error": null,
+  "started_at": "2024-05-01T12:03:00+00:00",
+  "completed_at": "2024-05-01T12:10:00+00:00"
+}

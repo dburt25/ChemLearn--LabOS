@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
+
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _parse_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    raise ValueError(f"Unsupported datetime value: {value!r}")
 
 
 def _validate_id(value: str, prefix: str) -> str:
@@ -92,6 +104,37 @@ class Experiment:
         data["created_at"] = self.created_at.isoformat()
         data["updated_at"] = self.updated_at.isoformat()
         return data
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "Experiment | None":
+        required = {"id", "name", "created_at", "updated_at"}
+        missing = sorted(required - payload.keys())
+        if missing:
+            logger.warning("Skipping experiment payload missing keys: %s", ", ".join(missing))
+            return None
+
+        try:
+            created_at = _parse_datetime(payload["created_at"])
+            updated_at = _parse_datetime(payload["updated_at"])
+        except Exception as exc:
+            logger.warning("Skipping experiment %s due to timestamp error: %s", payload.get("id", "<unknown>"), exc)
+            return None
+
+        try:
+            return cls(
+                id=str(payload["id"]),
+                name=str(payload["name"]),
+                owner=str(payload.get("owner", "local-user")),
+                mode=payload.get("mode", ExperimentMode.LAB),
+                status=payload.get("status", ExperimentStatus.DRAFT),
+                metadata=dict(payload.get("metadata") or {}),
+                jobs=list(payload.get("jobs") or []),
+                created_at=created_at,
+                updated_at=updated_at,
+            )
+        except Exception as exc:
+            logger.warning("Skipping experiment %s due to validation error: %s", payload.get("id", "<unknown>"), exc)
+            return None
 
     @classmethod
     def example(cls, idx: int = 1, mode: str = "Lab") -> "Experiment":

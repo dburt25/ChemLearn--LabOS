@@ -2,14 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
+
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _parse_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    raise ValueError(f"Unsupported datetime value: {value!r}")
 
 
 def _validate_id(value: str, prefix: str) -> str:
@@ -91,6 +103,48 @@ class Job:
         payload["started_at"] = self.started_at.isoformat() if self.started_at else None
         payload["finished_at"] = self.finished_at.isoformat() if self.finished_at else None
         return payload
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "Job | None":
+        required = {"id", "experiment_id", "kind", "status", "created_at"}
+        missing = sorted(required - payload.keys())
+        if missing:
+            logger.warning("Skipping job payload missing keys: %s", ", ".join(missing))
+            return None
+
+        try:
+            created_at = _parse_datetime(payload["created_at"])
+            started_at = (
+                _parse_datetime(payload["started_at"])
+                if payload.get("started_at") is not None
+                else None
+            )
+            finished_at = (
+                _parse_datetime(payload["finished_at"])
+                if payload.get("finished_at") is not None
+                else None
+            )
+        except Exception as exc:
+            logger.warning("Skipping job %s due to timestamp error: %s", payload.get("id", "<unknown>"), exc)
+            return None
+
+        try:
+            return cls(
+                id=str(payload["id"]),
+                experiment_id=str(payload["experiment_id"]),
+                kind=str(payload["kind"]),
+                status=payload.get("status", JobStatus.QUEUED),
+                params=dict(payload.get("params") or {}),
+                datasets_in=list(payload.get("datasets_in") or []),
+                datasets_out=list(payload.get("datasets_out") or []),
+                error_message=payload.get("error_message"),
+                created_at=created_at,
+                started_at=started_at,
+                finished_at=finished_at,
+            )
+        except Exception as exc:
+            logger.warning("Skipping job %s due to validation error: %s", payload.get("id", "<unknown>"), exc)
+            return None
 
     @classmethod
     def example(cls, idx: int = 1, experiment_id: str = "EXP-001") -> "Job":

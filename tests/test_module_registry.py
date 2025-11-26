@@ -51,7 +51,13 @@ class ModuleRegistryTests(unittest.TestCase):
 
     def test_builtin_registry_lists_expected_keys(self) -> None:
         registry = get_registry()
-        expected_keys = {"pchem.calorimetry", "eims.fragmentation", "import.wizard"}
+        expected_keys = {
+            "pchem.calorimetry",
+            "pchem.ideal_gas",
+            "eims.fragmentation",
+            "ei_ms.basic_analysis",
+            "import.wizard",
+        }
 
         for key in expected_keys:
             with self.subTest(module_key=key):
@@ -63,9 +69,17 @@ class ModuleRegistryTests(unittest.TestCase):
 class ModuleMetadataTests(unittest.TestCase):
     def test_phase2_metadata_entries_present(self) -> None:
         registry = MetadataRegistry.with_phase0_defaults()
-        required_keys = ["eims.fragmentation", "pchem.calorimetry", "import.wizard"]
+        required_keys = [
+            "eims.fragmentation",
+            "ei_ms.basic_analysis",
+            "pchem.calorimetry",
+            "pchem.ideal_gas",
+            "spectroscopy.nmr",
+            "spectroscopy.ir",
+            "import.wizard",
+        ]
         for key in required_keys:
-            meta = registry.get(key)
+            meta = registry.get_metadata(key)
             self.assertIsNotNone(meta, f"missing metadata for {key}")
             assert meta is not None  # for mypy
             self.assertTrue(meta.method_name)
@@ -73,8 +87,16 @@ class ModuleMetadataTests(unittest.TestCase):
 
     def test_phase2_metadata_fields_are_populated(self) -> None:
         registry = MetadataRegistry.with_phase0_defaults()
-        for key in ("eims.fragmentation", "pchem.calorimetry", "import.wizard"):
-            meta = registry.get(key)
+        for key in (
+            "eims.fragmentation",
+            "ei_ms.basic_analysis",
+            "pchem.calorimetry",
+            "pchem.ideal_gas",
+            "spectroscopy.nmr",
+            "spectroscopy.ir",
+            "import.wizard",
+        ):
+            meta = registry.get_metadata(key)
             self.assertIsNotNone(meta)
             assert meta is not None
             self.assertTrue(meta.display_name.strip())
@@ -82,6 +104,10 @@ class ModuleMetadataTests(unittest.TestCase):
             self.assertTrue(meta.primary_citation.strip())
             self.assertTrue(meta.limitations.strip())
             self.assertTrue(meta.version)
+
+    def test_missing_metadata_returns_none(self) -> None:
+        registry = MetadataRegistry.with_phase0_defaults()
+        self.assertIsNone(registry.get_metadata("unknown.tool"))
 
 
 class ControlPanelSmokeTest(unittest.TestCase):

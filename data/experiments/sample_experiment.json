@@ -1,0 +1,11 @@
+{
+  "id": "EXP-001",
+  "name": "Sample experiment",
+  "owner": "demo",
+  "mode": "Lab",
+  "status": "draft",
+  "metadata": {},
+  "jobs": [],
+  "created_at": "2024-01-01T00:00:00+00:00",
+  "updated_at": "2024-01-01T00:00:00+00:00"
+}

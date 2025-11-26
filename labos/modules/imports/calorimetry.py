@@ -1,9 +1,10 @@
 """Calorimetry data import helpers for the P-Chem module.
 
-This module keeps the logic in-memory and focuses on small tables passed in as
-lists of mappings or pandas DataFrames. It normalizes user-provided column
-names, validates a lightweight schema, and optionally emits DatasetRef
-metadata for downstream pipeline wiring.
+This module is an educational stub: it keeps all logic in-memory and assumes
+small, clean inputs. The intent is to illustrate provenance wiring rather than
+provide a production ETL. It normalizes user-provided column names, validates
+lightweight schemas, and emits DatasetRef + AuditEvent records that match the
+core LabOS provenance model.
 
 The canonical schema focuses on bulk calorimetry runs (mass, heat capacity,
 and temperature changes). Time-series traces can be layered on later, but the
@@ -17,6 +18,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, Mapping, MutableMapping, Sequence
 
+from labos.core import storage
+from labos.core.audit import AuditEvent
 from labos.core.datasets import DatasetRef
 
 CALORIMETRY_SCHEMA: list[dict[str, object]] = [
@@ -368,8 +371,27 @@ def import_calorimetry_table(
                 "source": source or "labos://inline",
                 "row_count": len(normalized_records),
                 "unmatched_columns": resolution.unmatched,
+                "column_mapping": dict(resolution.mapping),
+            },
+        )
+        storage.save_dataset_record(dataset_ref, content=normalized_records)
+
+        audit_event = AuditEvent(
+            id=f"AUD-CAL-{timestamp}",
+            actor="labos.importer",
+            action="import",
+            target=dataset_ref.id,
+            details={
+                "module_key": MODULE_KEY,
+                "source": source or "labos://inline",
+                "label": dataset_ref.label,
+                "row_count": len(normalized_records),
+                "column_mapping": dict(resolution.mapping),
+                "unmatched_columns": resolution.unmatched,
             },
         )
         result["dataset"] = dataset_ref.to_dict()
+        result["audit"] = audit_event.to_dict()
+        result["audit_events"] = [audit_event.to_dict()]
 
     return result
