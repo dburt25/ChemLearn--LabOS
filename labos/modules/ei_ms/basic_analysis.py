@@ -127,7 +127,7 @@ def run_ei_ms_analysis(params: Mapping[str, Any] | None = None) -> dict[str, Any
     for idx, mass in enumerate(fragment_masses):
         rel_intensity = intensities[idx] if idx < len(intensities) else 0.0
         tags: list[str] = ["candidate_fragment"]
-        classification = "minor_fragment"
+        classification = "minor_peak"
         if base_peak_index is not None and idx == base_peak_index and rel_intensity > 0:
             tags.append("base_peak")
             classification = "base_peak"
@@ -194,6 +194,13 @@ def _register() -> None:
         ModuleOperation(
             name="analyze",
             description="Run heuristic EI-MS fragmentation tagging.",
+            handler=run_ei_ms_analysis,
+        )
+    )
+    descriptor.register_operation(
+        ModuleOperation(
+            name="compute",
+            description="Alias of analyze for LabOS runtimes expecting 'compute'.",
             handler=run_ei_ms_analysis,
         )
     )

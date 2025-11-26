@@ -29,25 +29,25 @@ CALORIMETRY_SCHEMA: list[dict[str, object]] = [
     {
         "name": "mass_g",
         "type": "float",
-        "required": True,
+        "required": False,
         "description": "Sample mass in grams",
     },
     {
         "name": "specific_heat_j_per_gk",
         "type": "float",
-        "required": True,
+        "required": False,
         "description": "Specific heat capacity in J/(g*K)",
     },
     {
         "name": "t_initial_k",
         "type": "float",
-        "required": True,
+        "required": False,
         "description": "Initial temperature in Kelvin",
     },
     {
         "name": "t_final_k",
         "type": "float",
-        "required": True,
+        "required": False,
         "description": "Final temperature in Kelvin",
     },
     {
@@ -67,6 +67,30 @@ CALORIMETRY_SCHEMA: list[dict[str, object]] = [
         "type": "string",
         "required": False,
         "description": "Freeform notes about the run or calculation context",
+    },
+    {
+        "name": "time_s",
+        "type": "float",
+        "required": False,
+        "description": "Timestamp for the sample or event in seconds",
+    },
+    {
+        "name": "temperature_c",
+        "type": "float",
+        "required": True,
+        "description": "Measured temperature in degrees Celsius",
+    },
+    {
+        "name": "heat_flow_mw",
+        "type": "float",
+        "required": True,
+        "description": "Heat flow reading (typically mW) from the instrument",
+    },
+    {
+        "name": "event_label",
+        "type": "string",
+        "required": False,
+        "description": "Label or annotation describing the event",
     },
 ]
 
@@ -100,6 +124,34 @@ _SYNONYMS: dict[str, list[str]] = {
     ],
     "solvent_volume_ml": ["volume_ml", "solution_volume", "solvent_volume", "vol_ml"],
     "notes": ["note", "comment", "remarks"],
+    "time_s": [
+        "time",
+        "times",
+        "time_s",
+        "time_sec",
+        "time_seconds",
+        "seconds",
+        "time(s)",
+    ],
+    "temperature_c": [
+        "temperature",
+        "temp",
+        "temp_c",
+        "temp c",
+        "temp_deg_c",
+        "temperature_c",
+        "temperature(c)",
+    ],
+    "heat_flow_mw": [
+        "heatflow",
+        "heat_flow",
+        "heat flow",
+        "heatflow_mw",
+        "heat_flow_mw",
+        "qdot",
+        "power_mw",
+    ],
+    "event_label": ["event", "label", "event_label", "annotation", "note", "notes"],
 }
 
 
@@ -278,18 +330,15 @@ def import_calorimetry_table(
     records = _prepare_records(table_like)
     resolution = resolve_calorimetry_columns(records[0].keys() if records else [], column_mapping)
 
-    if records:
-        _validate_required_headers(resolution)
-
     normalized_records: list[dict[str, object]] = []
     extras_blocks: list[dict[str, object]] = []
 
     for idx, record in enumerate(records):
         resolved, extras = _apply_mapping(record, resolution.mapping, drop_unknown)
         try:
-            _validate_required_fields(resolved)
             if coerce_types:
                 _coerce_record_types(resolved)
+            _validate_required_fields(resolved)
         except ValueError as exc:
             raise ValueError(f"Row {idx}: {exc}") from exc
         normalized_records.append(resolved)

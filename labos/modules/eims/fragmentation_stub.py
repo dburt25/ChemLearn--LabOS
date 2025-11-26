@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+from uuid import uuid4
 
 from labos.modules import ModuleDescriptor, ModuleOperation, register_descriptor
 
@@ -19,9 +20,10 @@ def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
     collision_energy = float(payload.get("collision_energy", 70.0))
     actor = str(payload.get("actor", "labos.stub"))
     experiment_id = str(payload.get("experiment_id", "EXP-STUB"))
+    run_token = uuid4().hex[:8].upper()
 
     dataset = {
-        "id": f"DS-EIMS-{int(round(precursor_mz))}",
+        "id": f"DS-EIMS-{int(round(precursor_mz))}-{run_token}",
         "label": "EI-MS fragment spectrum (stub)",
         "kind": "spectrum",
         "path_hint": "data/stubs/eims_fragments.json",
@@ -34,7 +36,7 @@ def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
     }
 
     audit = {
-        "id": f"AUD-EIMS-{experiment_id}",
+        "id": f"AUD-EIMS-{experiment_id}-{run_token}",
         "actor": actor,
         "action": "simulate-fragmentation",
         "target": experiment_id,

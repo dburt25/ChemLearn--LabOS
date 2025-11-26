@@ -27,7 +27,7 @@ def run_calorimetry_stub(params: dict[str, Any] | None = None) -> dict[str, obje
     sample_tag = sample_id.replace(" ", "-") or "SAMPLE-STUB"
     run_token = uuid4().hex[:8].upper()
 
-    dataset_id = str(payload.get("dataset_id") or f"DS-PCHEM-{sample_tag}-{run_token}")
+    dataset_id = str(payload.get("dataset_id") or f"DS-PCHEM-{run_token}-{sample_tag}")
 
     dataset = {
         "id": dataset_id,
@@ -105,8 +105,9 @@ def _build_dataset_ref(module_key: str, label: str, metadata: Mapping[str, objec
     """Create a DatasetRef-compatible dictionary for computational outputs."""
 
     normalized_key = module_key.replace(".", "-").upper()
+    run_token = uuid4().hex[:8].upper()
     return {
-        "id": f"DS-{normalized_key}",
+        "id": f"DS-{normalized_key}-{run_token}",
         "label": label,
         "kind": "calculation",
         "metadata": dict(metadata),

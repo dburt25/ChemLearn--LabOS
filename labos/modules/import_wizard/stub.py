@@ -8,6 +8,8 @@ it can be used in educational settings without touching real files.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime, timezone
 from typing import Iterable, Mapping, MutableMapping, Sequence
 
@@ -153,6 +155,18 @@ def build_preview(df_or_records: object, max_rows: int = 5) -> dict:
     return {"rows": rows, "row_count": len(rows)}
 
 
+def _stable_import_token(schema: Mapping[str, object], preview: Mapping[str, object], source: str | None) -> str:
+    """Return a short deterministic digest for an import payload."""
+
+    fingerprint_payload = {
+        "schema": schema,
+        "preview": preview,
+        "source": source or "labos://inline",
+    }
+    raw = json.dumps(fingerprint_payload, sort_keys=True, default=str)
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12].upper()
+
+
 def create_dataset_ref_from_import(
     data: object,
     source: str | None = None,
@@ -160,15 +174,16 @@ def create_dataset_ref_from_import(
     actor: str | None = None,
     source_type: str = "inline",
     logical_path: str | None = None,
+    dataset_id: str | None = None,
 ) -> DatasetRef:
     """Create a DatasetRef based on imported data and inferred schema."""
 
     schema = infer_schema(data)
     preview = build_preview(data)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    dataset_id = f"DS-IMPORT-{timestamp}"
+    token = _stable_import_token(schema, preview, source)
+    dataset_id_value = dataset_id or f"DS-IMPORT-{token}"
     display_label = label or "Imported dataset"
-    path_hint = logical_path or f"import/{source_type}/{dataset_id}.json"
+    path_hint = logical_path or f"import/{source_type}/{dataset_id_value}.json"
     metadata = {
         "module_key": MODULE_KEY,
         "source": source or "labos://inline",
@@ -178,7 +193,7 @@ def create_dataset_ref_from_import(
         "preview": preview,
     }
     return DatasetRef(
-        id=dataset_id,
+        id=dataset_id_value,
         label=display_label,
         kind="table",
         path_hint=path_hint,
@@ -192,6 +207,7 @@ def build_import_summary(
     actor: str | None = None,
     source_type: str = "inline",
     notes: MutableMapping[str, object] | None = None,
+    dataset_id: str | None = None,
 ) -> dict[str, object]:
     """Create a structured summary containing dataset and audit metadata."""
 
@@ -200,6 +216,7 @@ def build_import_summary(
         source=source,
         actor=actor,
         source_type=source_type,
+        dataset_id=dataset_id,
     )
     schema = dataset_ref.metadata.get("schema", {})
     preview = dataset_ref.metadata.get("preview", {})
@@ -246,12 +263,14 @@ def run_import_stub(params: Mapping[str, object] | None = None) -> dict[str, obj
     notes = notes_param if isinstance(notes_param, Mapping) else {}
     payload_data = data if data is not None else list(_DEFAULT_SAMPLE_ROWS)
     try:
+        dataset_id_param = params.get("dataset_id")
         summary = build_import_summary(
             data=payload_data,
             source=str(source) if source is not None else None,
             actor=str(actor) if actor is not None else None,
             source_type=str(source_type),
             notes=dict(notes),
+            dataset_id=str(dataset_id_param) if dataset_id_param is not None else None,
         )
     except Exception as exc:
         return {
