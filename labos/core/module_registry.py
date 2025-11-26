@@ -83,7 +83,10 @@ class ModuleRegistry:
         try:
             return self._modules[key]
         except KeyError as exc:
-            raise NotFoundError(f"Module metadata not found for key {key!r}") from exc
+            available_keys = ", ".join(sorted(self._modules)) or "<none>"
+            raise NotFoundError(
+                f"Module metadata not found for key {key!r}. Available keys: {available_keys}"
+            ) from exc
 
     def get_metadata_optional(self, key: str) -> Optional[ModuleMetadata]:
         """Return metadata for ``key`` when present, otherwise ``None``."""
@@ -133,6 +136,11 @@ class ModuleRegistry:
     def run(self, key: str, operation: str, params: dict[str, object] | None = None) -> dict[str, object]:
         """Execute ``operation`` for ``key`` using the runtime registry."""
 
+        if params is not None and not isinstance(params, dict):
+            raise ValueError(
+                "params must be a dictionary of arguments or None; "
+                f"received {type(params).__name__}"
+            )
         self._get_operation_record(key, operation)
         return dict(self._operation_registry.run(key, operation, params or {}))
 
@@ -141,8 +149,12 @@ class ModuleRegistry:
 
         try:
             return self._operation_registry.get_operation(key, operation)
-        except KeyError as exc:
-            raise NotFoundError(f"Module operation not found for key {key!r} and operation {operation!r}") from exc
+        except (KeyError, NotFoundError) as exc:
+            available_keys = ", ".join(sorted(self._operation_registry._modules)) or "<none>"
+            raise NotFoundError(
+                f"Module operation not found for key {key!r} and operation {operation!r}. "
+                f"Registered module keys: {available_keys}"
+            ) from exc
 
     # ---- Factory helpers -----------------------------------------------------
     @classmethod

@@ -35,3 +35,4 @@
 - Update COMPLIANCE_CHECKLIST.md when new modules/datasets are added to track provenance requirements.
 - Cross-link VALIDATION_LOG.md entries with compliance updates where tests and documentation move together.
 - Keep citations centralized (see docs/PROVENANCE_GUIDE.md) and ensure module registry metadata references them.
+- Add UI/user-data security checks (input sanitization, unsafe content handling, no `eval` on user strings) to security and compliance docs.
