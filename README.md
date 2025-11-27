@@ -42,16 +42,26 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
    ```bash
    docker build -t labos-dev .
    ```
-- **Run ad-hoc commands** inside a container (shell by default, pass another command to run Streamlit or tests):
-   ```bash
-   ./scripts/docker-run.sh "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
-   ```
-   The helper script rebuilds the image, mounts the repo into `/labos`, forwards port `8501`, and executes the provided command.
+- **Run ad-hoc commands** inside a container (the Dockerfile now launches Streamlit by default; pass another command for shells or tests):
+   - macOS/Linux:
+      ```bash
+      ./scripts/docker-run.sh "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
+      ```
+   - Windows PowerShell:
+      ```powershell
+      ./scripts/docker-run.ps1 "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
+      ```
+   The helper scripts rebuild the image, mount the repo into `/labos`, forward port `8501`, and execute the provided command (omit the quoted command to stick with the default Streamlit launch).
 - **Use Docker Compose** to boot the Streamlit UI directly:
    ```bash
    docker compose up --build
    ```
-   Compose maps port `8501` and watches the local workspace through a bind mount, so code edits are reflected on refresh. Use `docker compose down` to stop the container.
+   Compose maps port `8501` and watches the local workspace through a bind mount, so code edits are reflected on refresh. Provide `DOCKER_HUB_USER` / `DOCKER_HUB_PAT` values in a local `.env` (copy from `.env.example`) when you want to use the bundled `docker-scout` service for CVE scans. Use `docker compose down` to stop the container.
+
+## Docker AI ("Gordon") and Docker Scout
+- Review the workflow captured in [`docs/docker_ai_gordon.md`](docs/docker_ai_gordon.md) for Gordon prompts that analyze running containers, rate the Dockerfile, and suggest docker-compose optimizations.
+- Quickly scan built images for CVEs with Docker Scout directly from the repo: `docker compose run --rm docker-scout cves labos-dev:latest --only-severity critical,high`. Store your Docker Hub credentials in a local `.env` file (`DOCKER_HUB_USER`, `DOCKER_HUB_PAT`) so the helper container can authenticate without interactive prompts.
+- Use Docker Desktop's **Ask Gordon** tab (✨ icon) for live monitoring, and periodically run `docker ai "Check for updates to Docker Desktop and my images"` to stay current.
 
 ## CLI usage
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.

@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   labos:
     container_name: labos-dev
@@ -12,4 +11,19 @@ services:
       - .:/labos
     environment:
       - LABOS_USE_STORE=1
-    command: /bin/bash -lc "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
+
+  docker-scout:
+    container_name: labos-scout
+    image: docker/scout-cli:latest
+    profiles: ["security"]
+    environment:
+      DOCKER_SCOUT_CACHE_DIR: /tmp/scout-cache
+      DOCKER_SCOUT_HUB_USER: ${DOCKER_HUB_USER:-}
+      DOCKER_SCOUT_HUB_PASSWORD: ${DOCKER_HUB_PAT:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/workspace:ro
+      - scout-cache:/tmp/scout-cache
+
+volumes:
+  scout-cache:

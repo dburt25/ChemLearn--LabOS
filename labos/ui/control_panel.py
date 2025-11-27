@@ -28,6 +28,7 @@ st: Any = cast(Any, _streamlit)
 from labos.config import LabOSConfig
 from labos.core.errors import NotFoundError
 from labos.core.module_registry import ModuleMetadata, ModuleRegistry as MetadataRegistry
+from labos.core.types import JobStatus
 from labos.core.workflows import WorkflowResult, run_module_job
 from labos.datasets import Dataset
 from labos.experiments import Experiment
@@ -207,6 +208,37 @@ def _run_module_from_ui(
         actor=actor or "labos.ui",
         experiment_name=experiment_name,
     )
+
+
+def _rerun_job_from_ui(job: Job, runtime: LabOSRuntime) -> Job:
+    """Replay a stored job record using the runtime job runner."""
+
+    parameters = dict(job.parameters or {})
+    actor = job.actor or "labos.ui"
+    return runtime.run_module_operation(
+        experiment_id=job.experiment_id,
+        module_id=job.module_id,
+        operation=job.operation,
+        actor=actor,
+        parameters=parameters,
+    )
+
+
+def _find_running_duplicate(job: Job, jobs: Sequence[Job]) -> Optional[Job]:
+    target_params = dict(job.parameters or {})
+    for candidate in jobs:
+        if candidate.record_id == job.record_id:
+            continue
+        if getattr(candidate, "status", None) is not JobStatus.RUNNING:
+            continue
+        if (
+            candidate.module_id == job.module_id
+            and candidate.operation == job.operation
+            and candidate.experiment_id == job.experiment_id
+            and dict(candidate.parameters or {}) == target_params
+        ):
+            return candidate
+    return None
 
 
 def _mode_tip(section: str) -> str:
@@ -1069,6 +1101,7 @@ def _render_jobs(
     jobs: Sequence[Job],
     datasets: Sequence[Dataset],
     audit_events: Sequence[dict[str, object]],
+    runtime: LabOSRuntime,
     mode: str,
 ) -> None:
     section_header("Jobs", "Inspect recorded runs and their linked datasets.", icon="🧾")
@@ -1091,6 +1124,7 @@ def _render_jobs(
 
     dataset_map = {ds.record_id: ds for ds in datasets}
     job_rows: list[dict[str, object]] = []
+    job_map = {job.record_id: job for job in jobs}
     for job in jobs:
         linked_ids = _job_dataset_ids(job)
         linked_preview = (
@@ -1116,53 +1150,103 @@ def _render_jobs(
             }
         )
     st.dataframe(job_rows, use_container_width=True, hide_index=True)
-    st.button(
-        "Run selected job (coming soon)",
-        disabled=True,
-        help="TODO: wire job execution triggers once Run buttons are enabled.",
-    )
+
+    job_options = [row["Job"] for row in job_rows]
+    selected_job_key = "jobs_selected_id"
+    recent_job = st.session_state.pop("recently_reran_job", None)
+    if recent_job and recent_job in job_options:
+        st.session_state[selected_job_key] = recent_job
 
     selected_job = st.selectbox(
         "Inspect job",
-        options=[row["Job"] for row in job_rows],
+        options=job_options,
+        key=selected_job_key,
         help="Opens the stored JSON manifest for deeper debugging.",
     )
+
+    selected_job_obj = job_map.get(selected_job)
+    duplicate_job = _find_running_duplicate(selected_job_obj, jobs) if selected_job_obj else None
+    if duplicate_job:
+        started_at = getattr(duplicate_job, "started_at", None) or "pending timestamp"
+        st.warning(
+            f"Job {duplicate_job.record_id} is still running with the same parameters (started {started_at}). "
+            "Allow it to finish unless you truly need another run."
+        )
+
+    confirm_key: Optional[str] = None
+    rerun_confirmed = False
     if selected_job:
-        job_map = {job.record_id: job for job in jobs}
-        job_obj = job_map.get(selected_job)
-        if job_obj:
-            expanded = is_builder(mode)
-            with st.expander(f"Details — {selected_job}", expanded=expanded):
+        confirm_key = f"confirm_rerun_{selected_job}"
+        if st.session_state.get("job_confirm_target") != selected_job:
+            previous_target = st.session_state.get("job_confirm_target")
+            if isinstance(previous_target, str) and previous_target != selected_job:
+                st.session_state.pop(f"confirm_rerun_{previous_target}", None)
+            st.session_state["job_confirm_target"] = selected_job
+            st.session_state.pop(confirm_key, None)
+        rerun_confirmed = st.checkbox(
+            "I understand reruns may take time",
+            value=False,
+            key=confirm_key,
+            help="Long-running jobs can take a while; confirm before re-running.",
+        )
+
+    rerun_clicked = st.button(
+        "Re-run selected job",
+        disabled=not bool(selected_job_obj and rerun_confirmed),
+        help="Replay the stored parameters to create a fresh execution record.",
+    )
+
+    if rerun_clicked and selected_job_obj:
+        with st.spinner("Re-running job via workflow..."):
+            try:
+                new_job = _rerun_job_from_ui(selected_job_obj, runtime)
+            except Exception as exc:  # pragma: no cover - UI failure feedback
+                st.error(f"Job rerun failed: {exc}")
                 if is_builder(mode):
-                    st.caption("Raw job manifest for debugging module contracts and parameters.")
-                    render_debug_toggle("Show job JSON", f"job_json_{selected_job}", job_obj.to_dict())
-                elif is_learner():
-                    show_json_restricted_message("job")
-                else:
-                    show_lab_mode_note("JSON hidden here to keep the summary focused; open Builder for payloads.")
+                    with st.expander("Show traceback", expanded=False):
+                        st.code(traceback.format_exc())
+            else:
+                st.success(
+                    f"Submitted job {new_job.record_id} for module {new_job.module_id}; refreshing view..."
+                )
+                if confirm_key:
+                    st.session_state.pop(confirm_key, None)
+                st.session_state["recently_reran_job"] = new_job.record_id
+                st.experimental_rerun()
 
-                st.caption("Linked datasets and latest audit signals help trace provenance from jobs to data.")
-                linked_ids = _job_dataset_ids(job_obj)
-                if linked_ids:
-                    for ds_id in linked_ids:
-                        ds_obj = dataset_map.get(ds_id)
-                        if ds_obj:
-                            st.markdown(
-                                f"- `{ds_id}` — {_dataset_label(ds_obj)} ({_dataset_kind(ds_obj)})"
-                            )
-                            st.caption(_dataset_preview_text(ds_obj))
-                        else:
-                            st.markdown(f"- `{ds_id}` — dataset record not found yet.")
-                else:
-                    st.info("No dataset references attached to this job. Add dataset_ids to parameters when wiring execution.")
-                audit_info = _find_audit_by_id(audit_events, getattr(job_obj, "last_audit_event_id", None))
-                if audit_info:
-                    st.write("Last audit event:", audit_info.get("event_type", "event"))
-                    st.caption(f"Created at: {audit_info.get('created_at', 'unknown')}")
-                else:
-                    st.caption("Audit linkage pending. Future runs will populate this automatically.")
+    if selected_job_obj:
+        expanded = is_builder(mode)
+        with st.expander(f"Details — {selected_job}", expanded=expanded):
+            if is_builder(mode):
+                st.caption("Raw job manifest for debugging module contracts and parameters.")
+                render_debug_toggle("Show job JSON", f"job_json_{selected_job}", selected_job_obj.to_dict())
+            elif is_learner():
+                show_json_restricted_message("job")
+            else:
+                show_lab_mode_note("JSON hidden here to keep the summary focused; open Builder for payloads.")
 
-    st.caption("Jobs table now hints at linked datasets and audit records; execution wiring will land in a later wave.")
+            st.caption("Linked datasets and latest audit signals help trace provenance from jobs to data.")
+            linked_ids = _job_dataset_ids(selected_job_obj)
+            if linked_ids:
+                for ds_id in linked_ids:
+                    ds_obj = dataset_map.get(ds_id)
+                    if ds_obj:
+                        st.markdown(
+                            f"- `{ds_id}` — {_dataset_label(ds_obj)} ({_dataset_kind(ds_obj)})"
+                        )
+                        st.caption(_dataset_preview_text(ds_obj))
+                    else:
+                        st.markdown(f"- `{ds_id}` — dataset record not found yet.")
+            else:
+                st.info("No dataset references attached to this job. Add dataset_ids to parameters when wiring execution.")
+            audit_info = _find_audit_by_id(audit_events, getattr(selected_job_obj, "last_audit_event_id", None))
+            if audit_info:
+                st.write("Last audit event:", audit_info.get("event_type", "event"))
+                st.caption(f"Created at: {audit_info.get('created_at', 'unknown')}")
+            else:
+                st.caption("Audit linkage pending. Future runs will populate this automatically.")
+
+    st.caption("Jobs panel now includes a quick re-run helper that replays stored module parameters.")
 
 
 def _render_datasets(datasets: Sequence[Dataset], mode: str) -> None:
@@ -1703,7 +1787,7 @@ def render_control_panel() -> None:
     elif section == "Experiments":
         _render_experiments(experiments, mode)
     elif section == "Jobs":
-        _render_jobs(jobs, datasets, audit_events, mode)
+        _render_jobs(jobs, datasets, audit_events, runtime, mode)
     elif section == "Datasets":
         _render_datasets(datasets, mode)
     elif section == "Modules":

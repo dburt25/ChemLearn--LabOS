@@ -24,5 +24,14 @@ jobs:
           fi
           pip install -e .
 
+      - name: Lint shell helper
+        run: shellcheck scripts/docker-run.sh
+
+      - name: Lint PowerShell helper
+        shell: pwsh
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          Invoke-ScriptAnalyzer -Path scripts/docker-run.ps1 -Recurse -Severity Error
+
       - name: Run unit tests
         run: python -m unittest
