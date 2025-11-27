@@ -9,16 +9,22 @@ Summarizes planned phases and focus areas for ChemLearn LabOS.
 - Experiment/job/dataset registries plus JSON storage + audit scaffolding landed.
 - CHANGELOG + VALIDATION_LOG workflows in place.
 
-## Phase 2 — Data & Provenance Services (In Progress)
+## Phase 2 — Data & Provenance Services
+
+### Phase 2.5.1 — Working Lab Skeleton (Complete)
 - EI-MS, P-Chem, and Import Wizard deterministic stubs emit dataset/audit payloads; Control Panel exposes provenance-aware inspectors.
 - CLI entry point (`labos/cli.py`) supports init/experiment/dataset/module commands; JSON file-store backs registries.
-- Outstanding: enable full `python -m unittest` by installing/mocking `streamlit`, add Run buttons/CLI-to-UI bridge, and harden dataset promotion workflows.
+- CLI/registry skeleton, audit hooks, and learner/lab/builder UI copy are in place for downstream hardening.
 
-## Phase 3 — Scientific Module Wave 1 (Next)
-- Promote EI-MS/P-Chem/import flows into runnable pipelines with provenance links created by `labos/core/provenance.py`.
-- Bring OrgChem + Proteomics stubs online with validation scaffolds while adding CLI/Control Panel triggers that emit Jobs/Datasets.
-- Primary subsystems: `modules.eims`, `modules.pchem`, `modules.import_wizard`, `modules.org_chem`, `modules.proteomics`, provenance overlays.
-- Key bots: EI-MS Module, PChem Module, OrgChem Module, Proteomics Module, Import & Provenance, Testing & Validation.
+### Phase 2.5.3 — Hardening & Contract Enforcement (Current)
+- Workflow stabilization across CLI, registries, ModuleRegistry, and UI job runners.
+- Module consolidation (EI-MS, spectroscopy) with metadata completion and contract enforcement.
+- UI wiring for Run buttons plus CLI/API parity.
+- Fixtures & compliance evidence to keep datasets/jobs/audits traceable.
+
+## Phase 3 (Draft) — UX & Module Expansion
+- Planning focus on richer UI/UX, learner modes, and broader module coverage; scheduling pending Phase 2.5.3 exit criteria.
+- Target surfaces include enhanced control panel flows, learner guidance, and expanded scientific module catalogues.
 
 ## Phase 4 — Control Surfaces, Simulation, and ML Explainability
 - Expand Workspace/3D visualization, add task dashboards, wire Clinical Boundary defaults, and introduce simulation + ML guardrails.

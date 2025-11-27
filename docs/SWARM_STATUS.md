@@ -2,11 +2,20 @@
 This document summarizes where the bot swarm left LabOS: current phase, shipped surfaces, remaining Phase 2 work, and how to scope new agents safely. For a concise view of what is runnable today, see [`CURRENT_CAPABILITIES.md`](./CURRENT_CAPABILITIES.md).
 
 ## Current Phase
-**Phase:** 2.5 – Working Lab Skeleton (file-backed registries, CLI job runner, educational modules, Streamlit control panel)
-- **Note:** Phase 2.5.1 is ongoing; Bot Wave 2 is experimental and must remain within the permissions matrix until promoted.
+**Phase:** 2.5.3 – Hardening & Contract Enforcement (file-backed registries, CLI job runner, educational modules, Streamlit control panel)
+- Bots 1–40 completed Phase 2.5.1 (working lab skeleton landed and promoted out of the experimental lane).
+- Phase 2.5.3 wave is active; all bots must enforce the permissions matrix while tightening contracts.
 - LabOS core models (Experiment, Job, DatasetRef, AuditEvent, ModuleMetadata) exist with JSON-backed storage and audit hooks.
 - Deterministic EI-MS, P-Chem, and Import Wizard stubs return dataset/audit payloads and register via the ModuleRegistry metadata.
 - Streamlit control panel + workspace shell deliver Learner/Lab/Builder modes with provenance previews and Method & Data footer fed by module metadata and audits.
+
+### Phase 2.5.3 Objectives
+- Workflow stabilization
+- Module consolidation (EI-MS, spectroscopy)
+- Metadata completion
+- UI wiring for Run buttons
+- CLI/API parity
+- Fixtures & compliance
 
 ## Snapshot: What Exists Right Now
 ### Core (LabOS Engine)
@@ -36,6 +45,7 @@ This document summarizes where the bot swarm left LabOS: current phase, shipped 
 
 ## Open Tasks for This Phase
 - Complete end-to-end Experiment → Job → Module → Dataset/Audit wiring with helper APIs that persist job results back into registries.
+- Consolidate EI-MS and spectroscopy descriptors/metadata so ModuleRegistry, audits, and UI footers stay aligned.
 - Wire Run buttons + CLI pathways so UI actions and CLI commands consistently submit jobs and update registries.
 - Harden JSON storage (locking, backups, checksum validation) and document dataset/URI conventions.
 - Enforce Learner/Lab/Builder behavior (tooltips vs compact tables vs debug JSON) and ensure copy remains governance-aligned.
