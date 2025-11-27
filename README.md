@@ -1,41 +1,52 @@
 # ChemLearn LabOS
 
-ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The repository is now in **Phase 2.5.1 (Working Lab Skeleton)**: file-backed registries, a runnable CLI, educational scientific stubs, and the Streamlit control panel are all present, while execution wiring and validation are still being hardened.
+ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The current release is **Phase 2.5.3 (hardening)**, focusing on stabilizing the working skeleton and tightening validation around the existing workflows.
 
-## What works today
-- Deterministic EI-MS fragmentation, P-Chem calorimetry, and import wizard stubs that register with the module registry and run through the CLI and workflows.
-- JSON-backed experiment/dataset/job registries with workflow helpers that stitch module runs into lineage and audit trails.
-- Learner, Lab, and Builder modes in the Streamlit control panel that surface registries, module metadata, and recent audit context.
+## What works in Phase 2.5.3
+- Core experiment, job, dataset, and audit pipeline backed by JSON registries and workflow helpers.
+- Deterministic PChem and EI-MS tools plus the Import Wizard stub, each registered as modules you can run through the CLI or workflows.
+- Streamlit control panel with Learner, Lab, and Builder modes that surface registries, module metadata, and recent audit context.
+- Basic CLI commands for initializing storage, creating experiments, registering datasets, and running module jobs.
 
-## What ships today
-- **LabOS Core** (`labos/core`, `labos/`): JSON-backed registries for experiments, datasets, and jobs; audit logging; runtime facade; job runner that persists results under `data/jobs/`; and workflow helpers for linking experiments, datasets, and jobs with audit events.
-- **Scientific modules** (`labos/modules`): built-in educational stubs for EI-MS fragmentation (`eims.fragmentation`), P-Chem calorimetry (`pchem.calorimetry`), and the Import Wizard (`import.wizard`). Each registers a `compute` operation that returns deterministic dataset/audit payloads for demos.
-- **UI layer** (`labos/ui`, `app.py`): Streamlit control panel with **Learner**, **Lab**, and **Builder** modes. Panels surface experiments, jobs, datasets, module descriptors, and Method & Data provenance footers sourced from module metadata and recent audits.
+> External API and ML integrations remain stubs in this phase, and the project is intended for educational/research use only—not for clinical workflows.
 
-## Quick start
-1. **Install** (Python 3.10+):
+## Getting started
+1. **Create and activate a virtual environment (Python 3.10+)**
    ```bash
    python -m venv .venv
    source .venv/bin/activate
+   ```
+2. **Install dependencies**
+   ```bash
    pip install -e .
    ```
-2. **Initialize storage** (creates `data/` + audit/registry folders):
+3. **Run tests**
+   ```bash
+   pytest
+   ```
+4. **Initialize storage and run a simple CLI sequence** (creates `data/` with registry, audit, and job folders)
    ```bash
    labos init
-   ```
-3. **Create records**:
-   ```bash
    labos new-experiment --user student --title "Week1" --purpose "Buffer prep"
-   labos register-dataset --owner student --dataset-type experimental --uri s3://placeholder
+   labos run-module --experiment-id EXP-001 --module-id eims.fragmentation --operation compute --actor student --params-json '{"precursor_mz": 250}'
    ```
-4. **Run a stub module via the job runner** (stores JSON results under `data/jobs/`):
-   ```bash
-   labos run-module --experiment-id <exp-id> --module-id eims.fragmentation --operation compute --actor student --params-json '{"precursor_mz": 250}'
-   ```
-5. **Launch the control panel** (optional UI):
+   Replace `EXP-001` with the identifier printed by `new-experiment` if your sequence starts at a different index.
+5. **Launch the Streamlit control panel**
    ```bash
    streamlit run app.py
    ```
+6. **Demo CLI (in-memory, no persistence)**
+   ```bash
+   python -m labos.cli.main experiment create --name "Kinetic sweep"
+   python -m labos.cli.main job run --module demo.calorimetry --params '{"temp": 298}'
+   ```
+
+## Architecture at a glance
+- **labos/core** – Workflow helpers, JSON-backed experiment/dataset/job registries, audit logging, and the runtime facade.
+- **labos/modules** – Educational module stubs (EI-MS fragmentation, PChem calorimetry, Import Wizard) registered for demos and jobs.
+- **labos/ui** – Streamlit panels (Learner, Lab, Builder) wired to registries and module metadata for control and review.
+- **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
+- **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
 
 ## Container workflow
 - **Build the image** (run from the repo root):
