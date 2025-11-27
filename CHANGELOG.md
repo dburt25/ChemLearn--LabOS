@@ -11,6 +11,14 @@ All notable changes will be documented in this file per `CHANGE_TYPES.md`.
 - Phase 2 – Wave 2: import wizard + provenance helpers now link stub outputs into job/dataset/audit chains.
 - Phase 2.5+: refreshed developer-facing docs (README, Development Guide, swarm status, modularity) to match the current runnable core, CLI, and UI surface.
 
+## [Phase 2.5.3] - 2026-05-21
+### Added
+- Consolidated EI-MS modules and added spectroscopy stubs to keep Phase 2 placeholders aligned with the workflow layer.
+- Completed ModuleRegistry metadata for all built-ins, including Import Wizard and spectroscopy placeholders, to satisfy provenance and UI expectations.
+- Wired UI Run buttons to workflow execution for both P-Chem and EI-MS modules so demo jobs launch from the Control Panel.
+- Added CLI commands and internal API wrappers to exercise workflows from scripted or interactive sessions alongside the UI.
+- Seeded demo data and expanded tests covering workflow execution, CLI/API usage, storage durability, and audit chaining.
+
 ## [0.1.0] - 2025-11-22
 ### Added
 - LabOS Core Python package with configuration loader, audit logger, registries, runtime facade, and CLI entry point.
