@@ -699,7 +699,7 @@ def _load_experiments(runtime: LabOSRuntime) -> list[Experiment]:
     for record_id in ids:
         try:
             experiments.append(registry.get(record_id))
-        except (NotFoundError, FileNotFoundError):
+        except (NotFoundError, FileNotFoundError, json.JSONDecodeError):
             continue
     return experiments
 
@@ -715,7 +715,7 @@ def _load_datasets(runtime: LabOSRuntime) -> list[Dataset]:
     for record_id in ids:
         try:
             datasets.append(registry.get(record_id))
-        except (NotFoundError, FileNotFoundError):
+        except (NotFoundError, FileNotFoundError, json.JSONDecodeError):
             continue
     return datasets
 
