@@ -88,7 +88,7 @@ DOCKER_HUB_USER=<your-docker-id>
 DOCKER_HUB_PAT=<personal-access-token>
 ```
 
-Those values are passed into the container as `DOCKER_SCOUT_HUB_USER` / `DOCKER_SCOUT_HUB_PASSWORD`, avoiding reliance on host credential stores that `docker-scout` cannot access inside the container.
+Those values are passed into the container as `DOCKER_SCOUT_HUB_USER` / `DOCKER_SCOUT_HUB_PASSWORD`. If you prefer to reuse the Docker Desktop login you already performed on the host, the compose service also bind-mounts `${USERPROFILE}\.docker` so the helper can read your existing `config.json`. Whenever you finish a scan round, append a "self reviewed" entry to `VALIDATION_LOG.md` noting the command you ran and whether Gordon or Scout reported follow-up work.
 
 Environment overrides:
 

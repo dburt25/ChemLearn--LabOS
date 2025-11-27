@@ -28,9 +28,7 @@ Use the standard library test runner so we avoid optional UI dependencies during
 ```bash
 python -m unittest discover -s tests
 ```
-- Run `labos init` first if you need local `data/` scaffolding; most tests operate purely in-memory with temporary paths.
-- Keep tests headless (no Streamlit/browser dependencies) and deterministic so registry/job assertions remain stable.
-- Prefer `python -m unittest tests.test_<area>` while iterating to focus on a single surface.
+8. `pwsh ./scripts/verify.ps1` to capture a full "self reviewed" run (unit tests, Docker AI diagnostics, Docker Scout CVE scan). The script writes detailed logs under `logs/verify/<timestamp>/` and appends a summary block to `VALIDATION_LOG.md`.
 
 ## Working with the CLI and runtime
 - Create an experiment:

@@ -56,7 +56,12 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
    ```bash
    docker compose up --build
    ```
-   Compose maps port `8501` and watches the local workspace through a bind mount, so code edits are reflected on refresh. Provide `DOCKER_HUB_USER` / `DOCKER_HUB_PAT` values in a local `.env` (copy from `.env.example`) when you want to use the bundled `docker-scout` service for CVE scans. Use `docker compose down` to stop the container.
+   Compose maps port `8501` and watches the local workspace through a bind mount, so code edits are reflected on refresh. Provide `DOCKER_HUB_USER` / `DOCKER_HUB_PAT` values in a local `.env` (copy from `.env.example`) when you want to use the bundled `docker-scout` service for CVE scans, or rely on your host `~/.docker/config.json` which is mounted automatically. Use `docker compose down` to stop the container.
+
+### Environment setup & secrets
+- Copy `.env.example` to `.env` and set any credentials required by helper services (e.g., Docker Hub PAT). This file is git-ignored for safety.
+- Run `docker login` locally so both the host CLI and the compose-based `docker-scout` helper can reuse your registry session.
+- Until peer reviewers are available, every verification run (tests + scanners) must be noted in `VALIDATION_LOG.md` with the tag **self reviewed**—include the command set you ran and whether any issues surfaced.
 
 ## Docker AI ("Gordon") and Docker Scout
 - Review the workflow captured in [`docs/docker_ai_gordon.md`](docs/docker_ai_gordon.md) for Gordon prompts that analyze running containers, rate the Dockerfile, and suggest docker-compose optimizations.
@@ -79,6 +84,24 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 ## Notes
 - Modules can also be auto-discovered via `LABOS_MODULES` (comma-separated import paths) when you want to load external plugins.
 - All outputs are educational only until validation dossiers are produced; keep audit logs current and prefer deterministic examples for demos.
+
+## Dependency management
+- The active virtual environment is tracked via `.venv/`. When you add or upgrade packages, run `pip install <package>` inside the venv and then refresh the lockfile:
+   ```powershell
+   Set-Location "C:/Users/<you>/Dev/1. LabOS"
+   . ./.venv/Scripts/Activate.ps1
+   pip freeze > requirements.txt
+   ```
+- The `requirements.txt` file is fully pinned; Docker builds and CI use it to guarantee reproducible installs. Always commit the updated file after regenerating it.
+
+## Verification workflow
+- Run `pwsh ./scripts/verify.ps1` before opening a PR or handing changes to another agent. The helper will:
+   1. Build the container image
+   2. Execute `python -m unittest`
+   3. Call Docker Gordon for both "rate" and "analyze" prompts
+   4. Scan the freshly built image with Docker Scout
+   5. Record results under `logs/verify/<timestamp>/`
+- Each execution appends a "self reviewed" block to `VALIDATION_LOG.md`; keep this history intact so future contributors can audit the verification trail until formal peer review starts.
 
 ## Programmatic API
 - Use `LabOSRuntime` from `labos.runtime` to access the config loader, audit logger, registries, and job runner as a single facade.

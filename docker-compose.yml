@@ -23,6 +23,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/workspace:ro
+      - ${USERPROFILE}/.docker:/root/.docker:ro
       - scout-cache:/tmp/scout-cache
 
 volumes:
