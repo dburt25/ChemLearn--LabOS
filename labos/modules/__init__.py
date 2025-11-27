@@ -52,6 +52,11 @@ class ModuleRegistry:
         except KeyError as exc:
             raise NotFoundError(f"Operation {operation} missing in module {module_id}") from exc
 
+    def list_module_ids(self) -> list[str]:
+        """Return the identifiers of all registered modules."""
+
+        return list(self._modules.keys())
+
     def run(self, module_id: str, operation: str, params: Mapping[str, object]) -> Mapping[str, object]:
         op = self.get_operation(module_id, operation)
         try:
