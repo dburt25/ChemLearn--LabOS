@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional
-
-from labos.modules import ModuleRegistry as OperationRegistry
-from labos.modules import get_registry as get_operation_registry
+from importlib import import_module
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Protocol, runtime_checkable
 
 from .errors import NotFoundError
 
@@ -50,6 +48,33 @@ class ModuleMetadata:
         }
 
 
+@runtime_checkable
+class OperationRegistryProtocol(Protocol):
+    def get_operation(self, module_id: str, operation: str):
+        ...
+
+    def run(self, module_id: str, operation: str, params: Mapping[str, object]):
+        ...
+
+    def list_module_ids(self) -> List[str]:
+        ...
+
+
+def _resolve_operation_registry(
+    operation_registry: OperationRegistryProtocol | None,
+) -> OperationRegistryProtocol:
+    if operation_registry is not None:
+        return operation_registry
+
+    try:
+        registry_factory = import_module("labos.modules").get_registry
+    except Exception as exc:  # pragma: no cover - import environment specific
+        raise RuntimeError(
+            "labos.modules registry is unavailable; ensure modules are installed"
+        ) from exc
+    return registry_factory()
+
+
 class ModuleRegistry:
     """Metadata-aware wrapper around the runtime module registry.
 
@@ -59,9 +84,11 @@ class ModuleRegistry:
     can rely on a single abstraction.
     """
 
-    def __init__(self, *, operation_registry: OperationRegistry | None = None) -> None:
+    def __init__(
+        self, *, operation_registry: OperationRegistryProtocol | None = None
+    ) -> None:
         self._modules: Dict[str, ModuleMetadata] = {}
-        self._operation_registry = operation_registry or get_operation_registry()
+        self._operation_registry = _resolve_operation_registry(operation_registry)
 
     # ---- Metadata management -------------------------------------------------
     def register(self, meta: ModuleMetadata) -> None:
@@ -159,7 +186,9 @@ class ModuleRegistry:
         try:
             return self._operation_registry.get_operation(key, operation)
         except (KeyError, NotFoundError) as exc:
-            available_keys = ", ".join(sorted(self._operation_registry._modules)) or "<none>"
+            available_keys = ", ".join(
+                sorted(self._operation_registry.list_module_ids())
+            ) or "<none>"
             raise NotFoundError(
                 f"Module operation not found for key {key!r} and operation {operation!r}. "
                 f"Registered module keys: {available_keys}"
@@ -168,7 +197,7 @@ class ModuleRegistry:
     # ---- Factory helpers -----------------------------------------------------
     @classmethod
     def with_phase0_defaults(
-        cls, *, operation_registry: OperationRegistry | None = None
+        cls, *, operation_registry: OperationRegistryProtocol | None = None
     ) -> "ModuleRegistry":
         registry = cls(operation_registry=operation_registry)
         registry.register_many(
