@@ -1,14 +1,15 @@
-# Development Guide (Phase 2.5.1)
+# Development Guide (Phase 2.5.3)
 
-This guide is the on-ramp for contributors working on ChemLearn LabOS while we stabilize the Phase 2.5 working lab skeleton. It summarizes the current layout, day-to-day workflows, and how to extend LabOS safely.
+This guide is the on-ramp for contributors working on ChemLearn LabOS during the Phase 2.5.3 hardening wave. It summarizes the current layout, day-to-day workflows, and how to extend LabOS safely.
 
 ## Repository layout (high level)
-- `labos/` – Python package root with config, audit logging, registries, CLI entry point, job runner, and UI helpers.
+- `labos/` – Python package root with config, audit logging, registries, CLI entry point, job runner, workflows, and UI helpers.
 - `labos/core/` – Core dataclasses, workflow helpers, and JSON-backed storage utilities for experiments, datasets, and jobs.
 - `labos/modules/` – Built-in educational stubs (`eims.fragmentation`, `pchem.calorimetry`, `import.wizard`) plus the module registry that auto-loads descriptors (including optional `LABOS_MODULES` plugins).
 - `labos/ui/` & `app.py` – Streamlit control panel (Learner/Lab/Builder modes) showing experiments, jobs, datasets, modules, and the Method & Data provenance footer.
 - `data/` – Created at runtime; holds audit logs, registry JSON files, job results, and example/demo payloads.
 - `docs/` – Architecture, compliance, and roadmap references (start with `VISION.md`, `DEVELOPMENT_VISION_GUIDE.md`, `COMPLIANCE_CHECKLIST.md`).
+- Workflows and orchestration helpers live in `labos/core/workflows.py`; UI surfaces for them reside in `labos/ui/**` and are summarized in `docs/WORKFLOWS_OVERVIEW.md` and `docs/README_ARCHITECTURE.md`.
 
 ## Environment setup
 1. Install dependencies in editable mode (Python 3.10+):
@@ -31,6 +32,8 @@ python -m unittest discover -s tests
 8. `pwsh ./scripts/verify.ps1` to capture a full "self reviewed" run (unit tests, Docker AI diagnostics, Docker Scout CVE scan). The script writes detailed logs under `logs/verify/<timestamp>/` and appends a summary block to `VALIDATION_LOG.md`.
 
 ## Working with the CLI and runtime
+Working CLI commands (Bot 48) share the same registries and storage as the UI: `labos init`, `labos new-experiment`, `labos register-dataset`, and `labos run-module`.
+
 - Create an experiment:
   ```bash
   labos new-experiment --user <user> --title "Titration" --purpose "demo"
@@ -61,7 +64,7 @@ python -m unittest discover -s tests
 ## Registering a module with the registry
 - **Built-ins:** Place the descriptor in a module under `labos/modules/**` and register it when the module imports; `labos.modules.get_registry()` will import built-in stub paths automatically.
 - **Plugins:** Export the descriptor from an external package and set `LABOS_MODULES="your.module.path"` (comma-separated) so `ModuleRegistry.auto_discover()` imports and registers it at startup.
-- **Validation:** Confirm the registry entry by running `labos list-modules` (CLI) or invoking `labos run-module --module-id <id> --operation compute` with demo params.
+- **Validation:** Confirm the registry entry by invoking `labos run-module --module-id <id> --operation compute` with demo params or by calling `labos.modules.get_registry().ensure_module_loaded(<id>)` in a Python shell.
 
 ## Wiring a job or workflow
 - The `LabOSRuntime` in `labos/runtime.py` wires together configuration, audit logging, registries, and the `JobRunner`.

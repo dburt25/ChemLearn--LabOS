@@ -13,10 +13,12 @@ from .datasets import DatasetRef
 from .errors import ModuleExecutionError
 from .experiments import Experiment, ExperimentMode, ExperimentStatus
 from .jobs import Job
-from .module_registry import ModuleRegistry, get_default_registry
+from .module_registry import (
+    ModuleRegistry,
+    OperationRegistryProtocol,
+    get_default_registry,
+)
 from .provenance import link_job_to_dataset, register_import_result
-from labos.modules import ModuleRegistry as OperationRegistry
-from labos.modules.import_wizard.stub import run_import_stub
 
 
 def _utc_now() -> datetime:
@@ -39,7 +41,7 @@ def _validate_module_key(module_key: str) -> str:
 
 
 def _coerce_registry(
-    registry: ModuleRegistry | OperationRegistry | None,
+    registry: ModuleRegistry | OperationRegistryProtocol | None,
 ) -> ModuleRegistry:
     """Normalize registry inputs to a metadata-aware ``ModuleRegistry``."""
 
@@ -47,7 +49,7 @@ def _coerce_registry(
         return registry
     if registry is None:
         return get_default_registry()
-    if not isinstance(registry, OperationRegistry):
+    if not isinstance(registry, OperationRegistryProtocol):
         raise TypeError(
             "module_registry must be a ModuleRegistry, OperationRegistry, or None"
         )
@@ -513,10 +515,17 @@ def _dataset_metadata_with_module(metadata: object, module_key: str | None) -> D
     return payload_metadata
 
 
+def _run_import_stub(params: Dict[str, object]) -> Dict[str, object]:
+    from importlib import import_module
+
+    stub = import_module("labos.modules.import_wizard.stub")
+    return stub.run_import_stub(params)
+
+
 def run_import_workflow(params: Dict[str, object]) -> Dict[str, object]:
     """Run the import stub and return provenance-aware payloads."""
 
-    module_output = run_import_stub(params)
+    module_output = _run_import_stub(params)
     dataset_payload = module_output.get("dataset") or {}
     dataset_ref = _dataset_from_dict(dataset_payload)
 

@@ -6,13 +6,15 @@ Principles for attaching new scientific capabilities to LabOS without destabiliz
 - **Core:** `labos/core/**` – domain models, storage, registries, audit logging, and shared configuration utilities.
 - **Modules:** `labos/modules/<domain>/**` – scientific capabilities that plug into the ModuleRegistry and job runner using stable descriptors.
 - **UI:** `labos/ui/**` – Streamlit control panel, workspace, inspectors, and presentation-only glue to orchestrate core + modules.
+- **CLI/API:** `labos/cli.py`, runtime entry points, and any external API shims that invoke Core + ModuleRegistry surfaces.
 - **Tests:** `tests/**` plus targeted fixtures alongside code under test.
 - **Docs:** `docs/**`, `README.md`, and related governance/compliance notes.
 
 ## Allowed Import Directions
-- Core has no upstream dependencies on Modules or UI. It may expose extension points (registries, storage helpers) consumed downstream.
-- Modules may import Core interfaces and shared utilities but must **not** import UI or other modules directly. Cross-module calls go through the ModuleRegistry, job runner, or shared data contracts.
-- UI may import Core APIs and Module descriptors/registrations to render operations but must not reach into module internals or private Core storage layers.
+- Core has no upstream dependencies on Modules or UI. It may expose extension points (registries, storage helpers) consumed downstream, but **core → NO UI** imports remain disallowed.
+- Modules may import Core interfaces and shared utilities but must **not** import UI or other modules directly (**modules → NO UI**). Cross-module calls go through the ModuleRegistry, job runner, or shared data contracts.
+- UI may import Core public APIs and Module descriptors/registrations to render operations but must not reach into module internals or private Core storage layers (**UI → only public APIs such as ModuleRegistry, workflows, runtime surface**).
+- CLI/API layers may call Core runtime helpers and public ModuleRegistry/Workflow APIs only; they must not import UI or module internals directly.
 - Tests may import their targets plus lightweight fixtures; avoid reaching across layers except via public interfaces.
 - Docs reference code symbols by name only and should not be used as a source of runtime configuration.
 

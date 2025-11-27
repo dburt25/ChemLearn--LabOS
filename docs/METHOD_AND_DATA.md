@@ -1,4 +1,4 @@
-# Method & Data Provenance (Phase 2 Placeholder)
+# Method & Data Provenance (Phase 2.5.3)
 
 The `ModuleRegistry` keeps a lightweight record of each scientific stub so the Control Panel and future APIs can display "ⓘ Method & Data" details consistently. It is the single source of truth for footers and provenance badges across EI-MS, P-Chem, spectroscopy, and import helpers.
 
@@ -9,9 +9,9 @@ The `ModuleRegistry` keeps a lightweight record of each scientific stub so the C
 
 ## Required Fields per Module
 Every module entry must declare:
-- **Name & key:** Human-friendly `display_name` plus a stable `key` (e.g., `eims.fragmentation`).
+- **Name & key:** Human-friendly `display_name` plus a stable `key` (e.g., `ei_ms.basic_analysis`).
 - **Method name:** Short phrase users will recognize in provenance tooltips.
-- **Citation:** Link text pointing to `CITATIONS.md` until real references are added.
+- **Citation:** Link text pointing to `CITATIONS.md` until peer-reviewed references are selected.
 - **Dataset sources:** Brief placeholder text noting expected data provenance.
 - **Limitations:** Always state: "Method stub. Educational use only. Not validated for clinical decisions."
 

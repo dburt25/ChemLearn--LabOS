@@ -4,6 +4,11 @@ Document scientific validation activities once numerical or analytical logic shi
 
 | Date (UTC) | Component | Change Summary | Evidence |
 | --- | --- | --- | --- |
+| 2026-05-21T00:45:00Z | Core workflow integration | Pass – P-Chem and EI-MS workflows wired through Run buttons and CLI wrappers; job lineage and dataset/audit IDs validated end-to-end. | `python -m pytest tests/test_workflow_pipeline.py tests/test_workflow_jobs_integration.py` |
+| 2026-05-21T00:35:00Z | Storage & audit stress | Pass – File-backed registries and JSONL audit log sustained repeated job runs without checksum drift or orphaned refs. | `python -m pytest tests/test_storage_in_memory.py tests/test_telemetry_logging.py` |
+| 2026-05-21T00:25:00Z | Import Wizard provenance | Pass – Import Wizard workflows preserved dataset/experiment linkage and ModuleRegistry metadata across calorimetry/EI-MS ingest paths. | `python -m pytest tests/test_import_calorimetry.py tests/test_import_provenance.py tests/test_module_registry.py` |
+| 2026-05-21T00:15:00Z | CLI/API integration | Pass – Demo data seeding and workflow execution exercised via new CLI commands and LabOSRuntime API wrappers. | Manual CLI/API session logs |
+| 2026-05-21T00:05:00Z | Workflow + storage regression | Pass – Combined workflow, CLI, storage, and audit scenarios executed to cover stabilization work for Phase 2.5.3. | `python -m pytest tests/test_pchem_operations.py tests/test_ei_ms_basic_analysis.py tests/perf` |
 | 2026-05-14T00:00:00Z | Telemetry logging | Added pytest coverage ensuring `log_event` serializes JSONL output without touching the filesystem and accumulates repeated calls in memory. | `python -m pytest tests/test_telemetry_logging.py` |
 | 2026-03-07T00:00:00Z | Mode helper predicates | Added regression tests for mode resolution defaults and explicit mode overrides in control panel helpers. | `python -m pytest tests/test_ui_mode_helpers.py` |
 | 2026-03-06T00:00:00Z | Security docs | Added UI input sanitization, unsafe content handling, and anti-eval guidance to security notes and compliance checklists. | Documentation review |
