@@ -31,6 +31,15 @@ def run_eims_stub(params: dict[str, Any] | None = None) -> dict[str, object]:
     experiment_id = str(payload.get("experiment_id", "EXP-STUB"))
     run_token = uuid4().hex[:8].upper()
 
+    fragment_masses = payload.get("fragment_masses")
+    if not fragment_masses:
+        # Provide deterministic fallback peaks so the stub succeeds with minimal inputs.
+        fragment_masses = [max(precursor_mz - delta, 5.0) for delta in (15.0, 28.0, 43.0)]
+        payload["fragment_masses"] = fragment_masses
+
+    if "fragment_intensities" not in payload:
+        payload["fragment_intensities"] = [100.0, 65.0, 40.0][: len(fragment_masses)]
+
     analysis = run_basic_analysis(
         {
             "precursor_mass": precursor_mz,

@@ -36,13 +36,28 @@ function Invoke-Step {
     Write-Host "[verify] $Label"
     $relativeLog = Join-Path (Join-Path 'logs/verify' $timestamp) $LogName
     try {
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        Set-Variable -Name LASTEXITCODE -Value 0 -Scope Global
         & $Action 2>&1 | Tee-Object -FilePath $logPath | Out-Null
+        $pipelineSucceeded = $?
+        $nativeExitCode = if ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 0 }
+
+        if (-not $pipelineSucceeded -or $nativeExitCode -ne 0) {
+            throw "Step failed with exit code $nativeExitCode"
+        }
+
         $status = "SUCCESS"
     } catch {
         $_ | Out-String | Add-Content -Path $logPath
         $status = "FAILED"
         $summary.Add("- [$status] $Label ($relativeLog)")
         throw
+    } finally {
+        if ($null -ne $previousPreference) {
+            $ErrorActionPreference = $previousPreference
+        }
     }
 
     $summary.Add("- [$status] $Label ($relativeLog)")
@@ -82,7 +97,7 @@ try {
     }
 
     Invoke-Step "Log compose helper availability" "07_compose_helper.log" {
-        docker compose run --rm docker-scout --version
+        docker compose run --rm docker-scout version
     }
 
 } finally {
@@ -97,4 +112,3 @@ foreach ($line in $summary) {
 "" | Add-Content -Path $LogPath
 
 Write-Host "[verify] Complete. Detailed logs: $logsRoot"
-*** End of File

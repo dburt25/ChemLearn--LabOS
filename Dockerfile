@@ -19,11 +19,11 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
 
 # Copy resolver files separately to maximize Docker layer caching
-COPY requirements.txt pyproject.toml README.md ./
+COPY requirements.base.txt requirements.txt pyproject.toml README.md ./
 
 RUN pip install --upgrade pip \
  && pip install --no-cache-dir --upgrade setuptools==78.1.1 \
- && pip install --no-cache-dir -r requirements.txt
+ && pip install --no-cache-dir -r requirements.base.txt
 
 # Copy the full workspace and install LabOS in editable mode for CLI/UI use
 COPY . ${LABOS_HOME}

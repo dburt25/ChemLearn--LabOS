@@ -37,3 +37,23 @@ Document scientific validation activities once numerical or analytical logic shi
 | 2025-11-25T00:59:30Z | Control Panel UI Tests | Added default-mode fallbacks, audit lookup, and dataset ID parsing coverage for mode helpers. | `python -m pytest tests/test_ui_mode_helpers.py` |
 | 2025-11-23T12:00:00Z | P-Chem, EI-MS, Import validation | Added unit tests covering calorimetry stubs, ideal gas and ΔG helpers, EI-MS base peak/loss tagging, and calorimetry import column/validation paths. | `pytest tests/test_pchem_operations.py tests/test_ei_ms_basic_analysis.py tests/test_import_calorimetry.py` |
 | 2025-11-23T18:00:00Z | Workflow lineage & registry | Added calorimetry workflow regression for Experiment/Job/DatasetRef/AuditEvent IDs and ModuleRegistry built-in key coverage. | `python -m pytest tests/test_workflow_experiment_lineage.py tests/test_module_registry.py` |
+
+## 2025-11-27 11:26:38 -06:00 - self reviewed
+- [SUCCESS] Build labos-dev image (logs\verify\20251127-112638\01_docker_build.log)
+- [SUCCESS] Run unit tests (logs\verify\20251127-112638\02_unit_tests.log)
+- [SUCCESS] Rate Dockerfile with Gordon (logs\verify\20251127-112638\03_docker_ai_rate.log)
+- [SUCCESS] Start Streamlit container (logs\verify\20251127-112638\04_container_start.log)
+- [SUCCESS] Analyze running container with Gordon (logs\verify\20251127-112638\05_docker_ai_analyze.log)
+- [SUCCESS] Scan image with Docker Scout (logs\verify\20251127-112638\06_docker_scout.log)
+- [SUCCESS] Log compose helper availability (logs\verify\20251127-112638\07_compose_helper.log)
+
+
+## 2025-11-27 11:28:47 -06:00 - self reviewed
+- [SUCCESS] Build labos-dev image (logs\verify\20251127-112847\01_docker_build.log)
+- [SUCCESS] Run unit tests (logs\verify\20251127-112847\02_unit_tests.log)
+- [SUCCESS] Rate Dockerfile with Gordon (logs\verify\20251127-112847\03_docker_ai_rate.log)
+- [SUCCESS] Start Streamlit container (logs\verify\20251127-112847\04_container_start.log)
+- [SUCCESS] Analyze running container with Gordon (logs\verify\20251127-112847\05_docker_ai_analyze.log)
+- [SUCCESS] Scan image with Docker Scout (logs\verify\20251127-112847\06_docker_scout.log)
+- [SUCCESS] Log compose helper availability (logs\verify\20251127-112847\07_compose_helper.log)
+

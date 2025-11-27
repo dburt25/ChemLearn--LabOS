@@ -13,43 +13,120 @@ Description-Content-Type: text/markdown
 
 # ChemLearn LabOS
 
-ChemLearn LabOS is a faith-aligned lab operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The repository is currently in **Phase 0 (Bootstrap)**, which means only scaffolding, governance docs, and placeholders are being created—no production logic exists yet.
+ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The current release is **Phase 2.5.3 (hardening)**, focusing on stabilizing the working skeleton and tightening validation around the existing workflows.
 
-## Three-Layer Architecture
-- **LabOS Core:** Orchestrates experiments, jobs, datasets, audit logging, and provenance workflows.
-- **Scientific Modules:** Plug-in domain packs (PChem, EI-MS, proteomics, etc.) that extend the core with discipline-specific capabilities.
-- **UI Layer:** Control panel and presentation shells for learners, lab operators, and builders.
+## What works in Phase 2.5.3
+- Core experiment, job, dataset, and audit pipeline backed by JSON registries and workflow helpers.
+- Deterministic PChem and EI-MS tools plus the Import Wizard stub, each registered as modules you can run through the CLI or workflows.
+- Streamlit control panel with Learner, Lab, and Builder modes that surface registries, module metadata, and recent audit context.
+- Basic CLI commands for initializing storage, creating experiments, registering datasets, and running module jobs.
 
-## Phase 1 Kickoff
-- Adds the first cut of the LabOS Core Python package with configuration loading, audit logging, and JSON-backed registries.
-- Introduces a minimal CLI (`labos`) for initializing directories, creating experiments, registering datasets, and dispatching module jobs.
-- Keeps scientific logic out of the core to remain compliant until validation dossiers are ready.
+> External API and ML integrations remain stubs in this phase, and the project is intended for educational/research use only—not for clinical workflows.
 
-## Getting Started
-1. Create a virtual environment and install the package in editable mode:
-	```powershell
-	python -m venv .venv
-	.\.venv\Scripts\activate
-	pip install -e .
-	```
-2. Initialize the workspace directories and data stores:
-	```powershell
-	labos init
-	```
-3. Create an experiment and register datasets as needed:
-	```powershell
-	labos new-experiment --user student --title "Week1" --purpose "Buffer prep"
-	labos register-dataset --owner student --dataset-type experimental --uri s3://placeholder
-	```
-4. Wire scientific modules (when available) via `LABOS_MODULES` and execute them:
-	```powershell
-	labos run-module --experiment-id <id> --module-id demo --operation echo --actor student --params-json '{"value": 42}'
-	```
+## Getting started
+1. **Create and activate a virtual environment (Python 3.10+)**
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+2. **Install dependencies**
+   ```bash
+   pip install -e .
+   ```
+3. **Run tests**
+   ```bash
+   pytest
+   ```
+4. **Initialize storage and run a simple CLI sequence** (creates `data/` with registry, audit, and job folders)
+   ```bash
+   labos init
+   labos new-experiment --user student --title "Week1" --purpose "Buffer prep"
+   labos run-module --experiment-id EXP-001 --module-id eims.fragmentation --operation compute --actor student --params-json '{"precursor_mz": 250}'
+   ```
+   Replace `EXP-001` with the identifier printed by `new-experiment` if your sequence starts at a different index.
+5. **Launch the Streamlit control panel**
+   ```bash
+   streamlit run app.py
+   ```
+6. **Demo CLI (in-memory, no persistence)**
+   ```bash
+   python -m labos.cli.main experiment create --name "Kinetic sweep"
+   python -m labos.cli.main job run --module demo.calorimetry --params '{"temp": 298}'
+   ```
 
-## Roadmap Snapshot
-1. Harden experiment/job/dataset registries with persistence and validation evidence.
-2. Define structured data stores and provenance tracking under `data/` per `DATA_ARCHITECTURE.md`.
-3. Prototype the control panel shell and connect initial scientific modules.
+## Architecture at a glance
+- **labos/core** – Workflow helpers, JSON-backed experiment/dataset/job registries, audit logging, and the runtime facade.
+- **labos/modules** – Educational module stubs (EI-MS fragmentation, PChem calorimetry, Import Wizard) registered for demos and jobs.
+- **labos/ui** – Streamlit panels (Learner, Lab, Builder) wired to registries and module metadata for control and review.
+- **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
+- **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
 
-## Binary Assets
-Large artifacts exported from CODEX or similar tools must be tracked through Git Large File Storage (LFS). Install Git LFS locally, keep binaries under `artifacts/` or `datasets/`, and follow `docs/BINARY_ASSET_HANDLING.md` to stay within GitHub limits.
+## Container workflow
+- **Build the image** (run from the repo root):
+   ```bash
+   docker build -t labos-dev .
+   ```
+- **Run ad-hoc commands** inside a container (the Dockerfile now launches Streamlit by default; pass another command for shells or tests):
+   - macOS/Linux:
+      ```bash
+      ./scripts/docker-run.sh "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
+      ```
+   - Windows PowerShell:
+      ```powershell
+      ./scripts/docker-run.ps1 "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
+      ```
+   The helper scripts rebuild the image, mount the repo into `/labos`, forward port `8501`, and execute the provided command (omit the quoted command to stick with the default Streamlit launch).
+- **Use Docker Compose** to boot the Streamlit UI directly:
+   ```bash
+   docker compose up --build
+   ```
+   Compose maps port `8501` and watches the local workspace through a bind mount, so code edits are reflected on refresh. Provide `DOCKER_HUB_USER` / `DOCKER_HUB_PAT` values in a local `.env` (copy from `.env.example`) when you want to use the bundled `docker-scout` service for CVE scans, or rely on your host `~/.docker/config.json` which is mounted automatically. Use `docker compose down` to stop the container.
+
+### Environment setup & secrets
+- Copy `.env.example` to `.env` and set any credentials required by helper services (e.g., Docker Hub PAT). This file is git-ignored for safety.
+- Run `docker login` locally so both the host CLI and the compose-based `docker-scout` helper can reuse your registry session.
+- Until peer reviewers are available, every verification run (tests + scanners) must be noted in `VALIDATION_LOG.md` with the tag **self reviewed**—include the command set you ran and whether any issues surfaced.
+
+## Docker AI ("Gordon") and Docker Scout
+- Review the workflow captured in [`docs/docker_ai_gordon.md`](docs/docker_ai_gordon.md) for Gordon prompts that analyze running containers, rate the Dockerfile, and suggest docker-compose optimizations.
+- Quickly scan built images for CVEs with Docker Scout directly from the repo: `docker compose run --rm docker-scout cves labos-dev:latest --only-severity critical,high`. Store your Docker Hub credentials in a local `.env` file (`DOCKER_HUB_USER`, `DOCKER_HUB_PAT`) so the helper container can authenticate without interactive prompts.
+- Use Docker Desktop's **Ask Gordon** tab (✨ icon) for live monitoring, and periodically run `docker ai "Check for updates to Docker Desktop and my images"` to stay current.
+
+## CLI usage
+- Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
+- Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
+
+## Key documentation
+- Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
+- Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
+- Architecture and modules: [`docs/README_ARCHITECTURE.md`](docs/README_ARCHITECTURE.md), [`docs/MODULARITY_GUIDELINES.md`](docs/MODULARITY_GUIDELINES.md)
+- Phase/state snapshots: [`docs/SWARM_STATUS.md`](docs/SWARM_STATUS.md), [`docs/PHASES_OVERVIEW.md`](docs/PHASES_OVERVIEW.md), [`docs/CURRENT_CAPABILITIES.md`](docs/CURRENT_CAPABILITIES.md)
+- Swarm governance & permissions: [`docs/SWARM_GOVERNANCE.md`](docs/SWARM_GOVERNANCE.md), [`docs/BOT_PERMISSIONS_MATRIX.md`](docs/BOT_PERMISSIONS_MATRIX.md)
+- Compliance and provenance: [`docs/COMPLIANCE_CHECKLIST.md`](docs/COMPLIANCE_CHECKLIST.md), [`docs/METHOD_AND_DATA.md`](docs/METHOD_AND_DATA.md), [`docs/AUDIT_LOG_FORMAT.md`](docs/AUDIT_LOG_FORMAT.md)
+- Notebook onboarding: [`docs/quickstart_notebook.md`](docs/quickstart_notebook.md)
+
+## Notes
+- Modules can also be auto-discovered via `LABOS_MODULES` (comma-separated import paths) when you want to load external plugins.
+- All outputs are educational only until validation dossiers are produced; keep audit logs current and prefer deterministic examples for demos.
+
+## Dependency management
+- The active virtual environment is tracked via `.venv/`. When you add or upgrade packages, run `pip install <package>` inside the venv and then refresh the lockfile:
+   ```powershell
+   Set-Location "C:/Users/<you>/Dev/1. LabOS"
+   . ./.venv/Scripts/Activate.ps1
+   pip freeze > requirements.txt
+   ```
+- The `requirements.txt` file is fully pinned; Docker builds and CI use it to guarantee reproducible installs. Always commit the updated file after regenerating it.
+
+## Verification workflow
+- Run `pwsh ./scripts/verify.ps1` before opening a PR or handing changes to another agent. The helper will:
+   1. Build the container image
+   2. Execute `python -m unittest`
+   3. Call Docker Gordon for both "rate" and "analyze" prompts
+   4. Scan the freshly built image with Docker Scout
+   5. Record results under `logs/verify/<timestamp>/`
+- Each execution appends a "self reviewed" block to `VALIDATION_LOG.md`; keep this history intact so future contributors can audit the verification trail until formal peer review starts.
+
+## Programmatic API
+- Use `LabOSRuntime` from `labos.runtime` to access the config loader, audit logger, registries, and job runner as a single facade.
+- See `docs/api/internal_usage.md` for examples of creating experiments, registering datasets, and running module operations in code.
