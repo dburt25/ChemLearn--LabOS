@@ -9,7 +9,7 @@ ARG LABOS_HOME=/labos
 WORKDIR ${LABOS_HOME}
 
 ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
+RUN ap update \
  && apt-get install -y --no-install-recommends \
      build-essential=12.9 \
      git=1:2.39.5-0+deb12u2 \

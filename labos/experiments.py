@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Iterable, Mapping, Optional, Sequence
+from dataclasses import dataclass, field, fields
+from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from .audit import AuditLogger
 from .config import LabOSConfig
@@ -48,6 +48,64 @@ class Experiment(BaseRecord):
             tags=tuple(tags or ()),
         )
 
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any], fallback_id: Optional[str] = None) -> "Experiment":
+        """Convert legacy/partial payloads into the canonical Experiment shape."""
+
+        data: dict[str, Any] = dict(payload)
+
+        record_id = data.get("record_id") or data.get("id") or fallback_id or BaseRecord.new_id()
+        data["record_id"] = record_id
+
+        created_at = data.get("created_at") or data.get("createdAt")
+        if not created_at:
+            created_at = utc_now()
+        data["created_at"] = created_at
+
+        updated_at = data.get("updated_at") or data.get("updatedAt") or created_at
+        data["updated_at"] = updated_at
+
+        data["audit_trail"] = list(data.get("audit_trail") or [])
+        data.setdefault("last_audit_event_id", data.get("last_audit_event_id"))
+        data.setdefault("signature", data.get("signature"))
+
+        data["user_id"] = data.get("user_id") or data.get("owner") or "unknown"
+        data["title"] = data.get("title") or data.get("name") or "untitled"
+        data["purpose"] = data.get("purpose") or data.get("description") or ""
+
+        status = data.get("status", ExperimentStatus.DRAFT)
+        if isinstance(status, str):
+            try:
+                data["status"] = ExperimentStatus(status)
+            except ValueError:
+                try:
+                    data["status"] = ExperimentStatus(status.lower())
+                except ValueError:
+                    data["status"] = ExperimentStatus.DRAFT
+        elif not isinstance(status, ExperimentStatus):
+            data["status"] = ExperimentStatus.DRAFT
+
+        inputs = data.get("inputs")
+        if not isinstance(inputs, Mapping):
+            metadata = data.get("metadata") if isinstance(data.get("metadata"), Mapping) else {}
+            inputs = metadata or {}
+        data["inputs"] = dict(inputs or {})
+
+        outputs = data.get("outputs")
+        if not isinstance(outputs, Mapping):
+            outputs = {}
+        data["outputs"] = dict(outputs or {})
+
+        tags = data.get("tags")
+        if isinstance(tags, Sequence) and not isinstance(tags, (str, bytes)):
+            data["tags"] = tuple(tags)
+        else:
+            data["tags"] = tuple()
+
+        allowed_fields = {field.name for field in fields(cls)}
+        cleaned = {key: value for key, value in data.items() if key in allowed_fields}
+        return cls(**cleaned)
+
 
 class ExperimentRegistry:
     def __init__(self, config: LabOSConfig, audit: AuditLogger) -> None:
@@ -80,7 +138,8 @@ class ExperimentRegistry:
         return experiment
 
     def get(self, experiment_id: str) -> Experiment:
-        return Experiment(**self.store.load(experiment_id))
+        payload = self.store.load(experiment_id)
+        return Experiment.from_dict(payload, fallback_id=experiment_id)
 
     def list_ids(self) -> Iterable[str]:
         return self.store.list_ids()
