@@ -14,15 +14,15 @@ from typing import Dict, List
 R_GAS = 8.314  # J/(mol·K)
 
 
-def calculate_rate_0th_order(k: float, time: float, initial_conc: float) -> float:
+def calculate_rate_0th_order(initial_conc: float, k: float, time: float) -> float:
     """Calculate concentration for 0th order reaction.
     
     [A] = [A]₀ - kt
     
     Args:
-        k: Rate constant (M/s)
-        time: Time in seconds
         initial_conc: Initial concentration in M
+        k: Rate constant in M/s
+        time: Time in seconds
         
     Returns:
         Concentration at time t in M
@@ -31,15 +31,15 @@ def calculate_rate_0th_order(k: float, time: float, initial_conc: float) -> floa
     return max(0.0, concentration)  # Concentration can't go negative
 
 
-def calculate_rate_1st_order(k: float, time: float, initial_conc: float) -> float:
+def calculate_rate_1st_order(initial_conc: float, k: float, time: float) -> float:
     """Calculate concentration for 1st order reaction.
     
     [A] = [A]₀ * exp(-kt)
     
     Args:
-        k: Rate constant (1/s)
+        initial_conc: Initial concentration
+        k: Rate constant
         time: Time in seconds
-        initial_conc: Initial concentration in M
         
     Returns:
         Concentration at time t in M
@@ -110,71 +110,62 @@ def arrhenius_equation(
     
     Args:
         a_factor: Pre-exponential factor A (same units as k)
-        activation_energy: Activation energy in kJ/mol
+        activation_energy: Activation energy in J/mol
         temperature: Temperature in K
         
     Returns:
         Rate constant k
         
     Example:
-        >>> arrhenius_equation(1e13, 50.0, 298.15)
-        # Calculate k for reaction with Ea = 50 kJ/mol at 25°C
+        >>> arrhenius_equation(1e13, 50000, 298.15)
+        # Calculate k for reaction with Ea = 50000 J/mol at 25°C
     """
     if temperature <= 0:
         raise ValueError("Temperature must be positive")
     if activation_energy < 0:
         raise ValueError("Activation energy must be non-negative")
     
-    # Convert Ea from kJ/mol to J/mol
-    ea_j = activation_energy * 1000.0
-    
     # k = A * exp(-Ea / RT)
-    exponent = -ea_j / (R_GAS * temperature)
+    exponent = -activation_energy / (R_GAS * temperature)
     
     # Protect against underflow
     if exponent < -700:
         return 0.0
     
-    return a_factor * math.exp(exponent)
+    k = a_factor * math.exp(exponent)
+    return k
 
 
 def arrhenius_temperature_ratio(
-    k1: float,
+    activation_energy: float,
     t1: float,
     t2: float,
-    activation_energy: float,
 ) -> float:
-    """Calculate rate constant at T2 from k at T1.
+    """Calculate k2/k1 ratio at two temperatures.
     
-    ln(k2/k1) = -Ea/R * (1/T2 - 1/T1)
+    k2/k1 = exp(-Ea/R * (1/T2 - 1/T1))
     
     Args:
-        k1: Rate constant at T1
+        activation_energy: Activation energy in J/mol
         t1: First temperature in K
         t2: Second temperature in K
-        activation_energy: Activation energy in kJ/mol
         
     Returns:
-        Rate constant k2 at temperature T2
+        Ratio k2/k1
     """
-    if k1 <= 0:
-        raise ValueError("k1 must be positive")
     if t1 <= 0 or t2 <= 0:
         raise ValueError("Temperatures must be positive")
     
-    # Convert Ea to J/mol
-    ea_j = activation_energy * 1000.0
+    # k2/k1 = exp(-Ea/R * (1/T2 - 1/T1))
+    ln_k_ratio = -(activation_energy / R_GAS) * (1/t2 - 1/t1)
     
-    # ln(k2/k1) = -Ea/R * (1/T2 - 1/T1)
-    ln_k_ratio = -(ea_j / R_GAS) * (1/t2 - 1/t1)
-    
-    return k1 * math.exp(ln_k_ratio)
+    return math.exp(ln_k_ratio)
 
 
 def calculate_activation_energy(
     k1: float,
-    t1: float,
     k2: float,
+    t1: float,
     t2: float,
 ) -> float:
     """Calculate activation energy from rate constants at two temperatures.
@@ -183,12 +174,12 @@ def calculate_activation_energy(
     
     Args:
         k1: Rate constant at T1
-        t1: First temperature in K
         k2: Rate constant at T2
+        t1: First temperature in K
         t2: Second temperature in K
         
     Returns:
-        Activation energy in kJ/mol
+        Activation energy in J/mol
     """
     if k1 <= 0 or k2 <= 0:
         raise ValueError("Rate constants must be positive")
@@ -203,16 +194,15 @@ def calculate_activation_energy(
     
     ea_j = -R_GAS * ln_ratio / temp_diff
     
-    # Convert to kJ/mol
-    return ea_j / 1000.0
+    return ea_j
 
 
 def simulate_reaction_kinetics(
     k: float,
     initial_conc: float,
     order: int,
-    total_time: float,
-    num_points: int = 50,
+    t_end: float,
+    n_points: int = 50,
 ) -> Dict[str, object]:
     """Simulate reaction concentration vs. time.
     
@@ -220,8 +210,8 @@ def simulate_reaction_kinetics(
         k: Rate constant
         initial_conc: Initial concentration in M
         order: Reaction order (0, 1, or 2)
-        total_time: Total simulation time in seconds
-        num_points: Number of time points
+        t_end: Total simulation time in seconds
+        n_points: Number of time points
         
     Returns:
         Dictionary with time series and concentration data
@@ -229,16 +219,16 @@ def simulate_reaction_kinetics(
     if order not in [0, 1, 2]:
         raise ValueError("Order must be 0, 1, or 2")
     
-    time_points = [i * total_time / (num_points - 1) for i in range(num_points)]
+    time_points = [i * t_end / (n_points - 1) for i in range(n_points)]
     concentrations = []
     
     for t in time_points:
         if order == 0:
-            conc = calculate_rate_0th_order(k, t, initial_conc)
+            conc = calculate_rate_0th_order(initial_conc, k, t)
         elif order == 1:
-            conc = calculate_rate_1st_order(k, t, initial_conc)
-        else:  # order == 2
-            conc = calculate_rate_2nd_order(k, t, initial_conc)
+            conc = calculate_rate_1st_order(initial_conc, k, t)
+        else:  # order == 2:
+            conc = calculate_rate_2nd_order(initial_conc, k, t)
         
         concentrations.append(conc)
     
@@ -250,6 +240,8 @@ def simulate_reaction_kinetics(
         "initial_concentration": initial_conc,
         "order": order,
         "half_life": half_life,
+        "time_points": time_points,
+        "concentrations": concentrations,
         "time_series": [
             {"time": t, "concentration": c}
             for t, c in zip(time_points, concentrations)
@@ -291,6 +283,10 @@ def compute_kinetics(
     """
     result = {"order": order, "temperature": temperature}
     
+    # Validate that we have enough data to compute something
+    if k is None and (a_factor is None or activation_energy is None):
+        raise ValueError("Must provide either k or both a_factor and activation_energy")
+    
     # Calculate k from Arrhenius parameters if provided
     if a_factor is not None and activation_energy is not None:
         k_calc = arrhenius_equation(a_factor, activation_energy, temperature)
@@ -302,16 +298,14 @@ def compute_kinetics(
     # Calculate concentration at specific time
     if k is not None and initial_conc is not None and time is not None:
         if order == 0:
-            conc = calculate_rate_0th_order(k, time, initial_conc)
+            conc = calculate_rate_0th_order(initial_conc, k, time)
         elif order == 1:
-            conc = calculate_rate_1st_order(k, time, initial_conc)
+            conc = calculate_rate_1st_order(initial_conc, k, time)
         else:  # order == 2
-            conc = calculate_rate_2nd_order(k, time, initial_conc)
+            conc = calculate_rate_2nd_order(initial_conc, k, time)
         
-        result["concentration_at_time"] = {
-            "time": time,
-            "concentration": conc,
-        }
+        result["time"] = time
+        result["concentration"] = conc
     
     # Calculate half-life
     if k is not None:

@@ -25,24 +25,22 @@ def calculate_gibbs_free_energy(
     ΔG = ΔH - TΔS
     
     Args:
-        delta_h: Enthalpy change in kJ/mol
+        delta_h: Enthalpy change in J/mol
         delta_s: Entropy change in J/(mol·K)
         temperature: Temperature in K (default: 298.15 K = 25°C)
         
     Returns:
-        Gibbs free energy in kJ/mol
+        Gibbs free energy in J/mol
         
     Example:
-        >>> calculate_gibbs_free_energy(-285.8, 163.2, 298.15)
-        -334.4  # Combustion of hydrogen is spontaneous
+        >>> calculate_gibbs_free_energy(100000, 50, 298.15)
+        85100  # ΔG = 100000 - 298.15 * 50
     """
     if temperature <= 0:
         raise ValueError("Temperature must be positive (Kelvin scale)")
     
-    # Convert entropy to kJ/(mol·K) for consistent units
-    delta_s_kj = delta_s / 1000.0
-    
-    delta_g = delta_h - (temperature * delta_s_kj)
+    # All units in J/mol
+    delta_g = delta_h - (temperature * delta_s)
     return delta_g
 
 
@@ -69,11 +67,8 @@ def calculate_equilibrium_constant(
     if temperature <= 0:
         raise ValueError("Temperature must be positive")
     
-    # Convert ΔG from kJ/mol to J/mol
-    delta_g_j = delta_g * 1000.0
-    
     # K = exp(-ΔG / RT)
-    exponent = -delta_g_j / (R_GAS * temperature)
+    exponent = -delta_g / (R_GAS * temperature)
     
     # Protect against overflow
     if exponent > 700:
@@ -97,11 +92,11 @@ def calculate_delta_g_from_k(
         temperature: Temperature in K
         
     Returns:
-        Standard Gibbs free energy in kJ/mol
+        Standard Gibbs free energy in J/mol
         
     Example:
         >>> calculate_delta_g_from_k(10.0, 298.15)
-        -5.7  # K = 10 corresponds to ΔG° = -5.7 kJ/mol
+        -5704.8  # K = 10 corresponds to ΔG° = -5704.8 J/mol
     """
     if k_eq <= 0:
         raise ValueError("Equilibrium constant must be positive")
@@ -109,17 +104,14 @@ def calculate_delta_g_from_k(
         raise ValueError("Temperature must be positive")
     
     # ΔG° = -RT ln(K)
-    delta_g_j = -R_GAS * temperature * math.log(k_eq)
-    
-    # Convert to kJ/mol
-    return delta_g_j / 1000.0
+    return -R_GAS * temperature * math.log(k_eq)
 
 
 def vant_hoff_equation(
     k1: float,
+    delta_h: float,
     t1: float,
     t2: float,
-    delta_h: float,
 ) -> float:
     """Calculate equilibrium constant at T2 from K at T1 using van't Hoff equation.
     
@@ -127,15 +119,15 @@ def vant_hoff_equation(
     
     Args:
         k1: Equilibrium constant at T1
+        delta_h: Standard enthalpy change in J/mol
         t1: First temperature in K
         t2: Second temperature in K
-        delta_h: Standard enthalpy change in kJ/mol
         
     Returns:
         Equilibrium constant K2 at temperature T2
         
     Example:
-        >>> vant_hoff_equation(1.0, 298.15, 323.15, 50.0)
+        >>> vant_hoff_equation(1.0, 298.15, 323.15, 50000)
         # K increases with temperature for endothermic reaction
     """
     if k1 <= 0:
@@ -143,11 +135,14 @@ def vant_hoff_equation(
     if t1 <= 0 or t2 <= 0:
         raise ValueError("Temperatures must be positive")
     
-    # Convert ΔH to J/mol
-    delta_h_j = delta_h * 1000.0
-    
     # ln(K2/K1) = -ΔH/R * (1/T2 - 1/T1)
-    ln_k_ratio = -(delta_h_j / R_GAS) * (1/t2 - 1/t1)
+    ln_k_ratio = -(delta_h / R_GAS) * (1/t2 - 1/t1)
+    
+    # Handle overflow/underflow
+    if ln_k_ratio > 700:
+        return float('inf') if k1 > 0 else 0.0
+    elif ln_k_ratio < -700:
+        return 0.0
     
     # K2 = K1 * exp(ln_k_ratio)
     k2 = k1 * math.exp(ln_k_ratio)
@@ -155,53 +150,30 @@ def vant_hoff_equation(
     return k2
 
 
-def predict_spontaneity(delta_g: float) -> Dict[str, object]:
-    """Predict reaction spontaneity from ΔG.
-    
-    Args:
-        delta_g: Gibbs free energy in kJ/mol
-        
-    Returns:
-        Dictionary with spontaneity prediction and interpretation
-    """
-    if delta_g < -10:
-        spontaneity = "spontaneous"
-        interpretation = "Reaction strongly favors products"
-    elif delta_g < 0:
-        spontaneity = "spontaneous"
-        interpretation = "Reaction favors products"
-    elif delta_g == 0:
-        spontaneity = "equilibrium"
-        interpretation = "Reaction at equilibrium"
-    elif delta_g < 10:
-        spontaneity = "non-spontaneous"
-        interpretation = "Reaction slightly favors reactants"
-    else:
-        spontaneity = "non-spontaneous"
-        interpretation = "Reaction strongly favors reactants"
-    
-    return {
-        "delta_g": delta_g,
-        "spontaneity": spontaneity,
-        "interpretation": interpretation,
-    }
-
-
 def predict_spontaneity(
-    delta_g: float,
+    delta_g: float | None = None,
     delta_h: float | None = None,
     delta_s: float | None = None,
+    temperature: float = 298.15,
 ) -> Dict[str, object]:
     """Predict reaction spontaneity from thermodynamic quantities.
     
     Args:
-        delta_g: Gibbs free energy in J/mol
-        delta_h: Optional enthalpy in J/mol (for interpretation)
-        delta_s: Optional entropy in J/(mol·K) (for interpretation)
+        delta_g: Optional Gibbs free energy in J/mol (if not provided, calculated from delta_h and delta_s)
+        delta_h: Optional enthalpy in J/mol (for calculation and interpretation)
+        delta_s: Optional entropy in J/(mol·K) (for calculation and interpretation)
+        temperature: Temperature in K (used for calculation and interpretation)
         
     Returns:
         Dictionary with spontaneity prediction and interpretation
     """
+    # Calculate delta_g if not provided
+    if delta_g is None:
+        if delta_h is not None and delta_s is not None:
+            delta_g = calculate_gibbs_free_energy(delta_h, delta_s, temperature)
+        else:
+            raise ValueError("Must provide either delta_g or both delta_h and delta_s")
+    
     is_spontaneous = delta_g < 0
     
     # Generate interpretation
@@ -228,39 +200,43 @@ def predict_spontaneity(
 def analyze_temperature_dependence(
     delta_h: float,
     delta_s: float,
-    temp_range: tuple[float, float] = (250, 400),
-    num_points: int = 10,
+    t_start: float = 273,
+    t_end: float = 373,
+    t_step: float = 10,
 ) -> Dict[str, object]:
-    """Analyze how ΔG and K vary with temperature.
+    """Analyze how ΔG changes with temperature.
     
     Args:
-        delta_h: Enthalpy change in kJ/mol
+        delta_h: Enthalpy change in J/mol
         delta_s: Entropy change in J/(mol·K)
-        temp_range: Temperature range (T_min, T_max) in K
-        num_points: Number of temperature points to calculate
+        t_start: Starting temperature in K
+        t_end: Ending temperature in K
+        t_step: Temperature step in K
         
     Returns:
-        Dictionary with temperature series and thermodynamic data
+        Dictionary with temperature series and ΔG values
     """
-    t_min, t_max = temp_range
-    temperatures = [t_min + i * (t_max - t_min) / (num_points - 1) for i in range(num_points)]
+    temperature_series = []
+    temperature = t_start
     
-    results = []
-    for temp in temperatures:
-        delta_g = calculate_gibbs_free_energy(delta_h, delta_s, temp)
-        k_eq = calculate_equilibrium_constant(delta_g, temp)
+    while temperature <= t_end:
+        delta_g = calculate_gibbs_free_energy(delta_h, delta_s, temperature)
+        k_eq = calculate_equilibrium_constant(delta_g, temperature)
+        is_spontaneous = delta_g < 0
         
-        results.append({
-            "temperature": temp,
+        temperature_series.append({
+            "temperature": temperature,
             "delta_g": delta_g,
             "k_eq": k_eq,
-            "spontaneous": delta_g < 0,
+            "is_spontaneous": is_spontaneous,
         })
+        
+        temperature += t_step
     
     return {
         "delta_h": delta_h,
         "delta_s": delta_s,
-        "temperature_series": results,
+        "temperature_series": temperature_series,
     }
 
 
@@ -311,7 +287,8 @@ def compute_thermodynamics(
         result["k_eq"] = k_eq_calc
         
         # Spontaneity prediction
-        result["spontaneity"] = predict_spontaneity(delta_g_calc)
+        spontaneity_info = predict_spontaneity(delta_g_calc)
+        result["is_spontaneous"] = spontaneity_info["is_spontaneous"]
         
         # Temperature dependence analysis
         if analyze_temp_dependence:
@@ -322,14 +299,16 @@ def compute_thermodynamics(
         delta_g_calc = calculate_delta_g_from_k(k_eq, temperature)
         result["delta_g"] = delta_g_calc
         result["k_eq"] = k_eq
-        result["spontaneity"] = predict_spontaneity(delta_g_calc)
+        spontaneity_info = predict_spontaneity(delta_g_calc)
+        result["is_spontaneous"] = spontaneity_info["is_spontaneous"]
     
     # Calculate K from ΔG if provided
     elif delta_g is not None:
         k_eq_calc = calculate_equilibrium_constant(delta_g, temperature)
         result["delta_g"] = delta_g
         result["k_eq"] = k_eq_calc
-        result["spontaneity"] = predict_spontaneity(delta_g)
+        spontaneity_info = predict_spontaneity(delta_g)
+        result["is_spontaneous"] = spontaneity_info["is_spontaneous"]
     
     else:
         raise ValueError("Must provide either (delta_h, delta_s), k_eq, or delta_g")

@@ -43,8 +43,8 @@ class NeutralLoss:
     fragment_mz: float
     loss_mass: float
     loss_name: str
-    loss_formula: str
-    interpretation: str
+    loss_formula: str = ""
+    interpretation: str | None = None
     
     def __repr__(self) -> str:
         return f"NeutralLoss({self.precursor_mz:.1f} → {self.fragment_mz:.1f}, -{self.loss_name})"
@@ -108,29 +108,25 @@ def detect_neutral_losses(
 
 
 def annotate_spectrum(
-    peaks: List[Tuple[float, float]],
-    precursor_mz: float | None = None,
+    precursor_mz: float,
+    fragment_peaks: List[Tuple[float, float]],
     mass_tolerance: float = 0.5,
-) -> Dict[str, object]:
+) -> List[Dict[str, object]]:
     """Annotate mass spectrum with neutral loss assignments.
     
     Args:
-        peaks: List of (m/z, intensity) tuples
-        precursor_mz: Optional precursor m/z (if None, use highest m/z)
+        precursor_mz: Precursor ion m/z
+        fragment_peaks: List of (m/z, intensity) tuples for fragments
         mass_tolerance: Mass tolerance for matching
         
     Returns:
-        Dictionary with annotated peaks and detected losses
+        List of annotated peaks with assignments
     """
-    if not peaks:
-        return {"peaks": [], "neutral_losses": [], "precursor_mz": None}
+    if not fragment_peaks:
+        return []
     
     # Sort peaks by m/z
-    sorted_peaks = sorted(peaks, key=lambda x: x[0])
-    
-    # Determine precursor
-    if precursor_mz is None:
-        precursor_mz = sorted_peaks[-1][0]
+    sorted_peaks = sorted(fragment_peaks, key=lambda x: x[0])
     
     # Detect neutral losses
     neutral_losses = detect_neutral_losses(precursor_mz, sorted_peaks, mass_tolerance)
@@ -138,29 +134,23 @@ def annotate_spectrum(
     # Create annotated peak list
     annotated_peaks = []
     for mz, intensity in sorted_peaks:
-        peak_annotation = {"mz": mz, "intensity": intensity, "assignments": []}
+        peak_annotation = {"mz": mz, "intensity": intensity, "annotations": []}
         
         # Check if this is a known neutral loss fragment
         for loss in neutral_losses:
             if abs(mz - loss.fragment_mz) < 0.01:
-                peak_annotation["assignments"].append({
-                    "type": "neutral_loss",
-                    "loss_formula": loss.loss_formula,
-                    "loss_name": loss.loss_name,
-                })
+                # Format: "Loss: H2O (18 Da) - Alcohol/phenol/carboxylic acid"
+                interpretation = loss.interpretation if loss.interpretation else "Unknown"
+                annotation_text = f"Loss: {loss.loss_formula} ({loss.loss_mass:.0f} Da) - {interpretation}"
+                peak_annotation["annotations"].append(annotation_text)
         
         # Mark precursor peak
         if abs(mz - precursor_mz) < 0.01:
-            peak_annotation["assignments"].append({"type": "precursor", "label": "M+"})
+            peak_annotation["annotations"].append("M+")
         
         annotated_peaks.append(peak_annotation)
     
-    return {
-        "precursor_mz": precursor_mz,
-        "peaks": annotated_peaks,
-        "neutral_losses": [loss.to_dict() for loss in neutral_losses],
-        "interpretation_summary": _generate_interpretation(neutral_losses),
-    }
+    return annotated_peaks
 
 
 def _generate_interpretation(losses: List[NeutralLoss]) -> str:
@@ -181,15 +171,15 @@ def _generate_interpretation(losses: List[NeutralLoss]) -> str:
 
 
 def find_sequential_losses(
-    peaks: List[Tuple[float, float]],
-    max_chain_length: int = 3,
+    precursor_mz: float,
+    fragment_peaks: List[Tuple[float, float]],
     mass_tolerance: float = 0.5,
 ) -> List[List[NeutralLoss]]:
     """Find sequential neutral loss chains (cascading fragmentation).
     
     Args:
-        peaks: List of (m/z, intensity) tuples
-        max_chain_length: Maximum chain length to search
+        precursor_mz: Precursor ion m/z
+        fragment_peaks: List of (m/z, intensity) tuples for fragments
         mass_tolerance: Mass tolerance for matching
         
     Returns:
@@ -197,16 +187,17 @@ def find_sequential_losses(
         
     Example:
         >>> # M+ → (M-H2O)+ → (M-H2O-CO)+
-        >>> chains = find_sequential_losses([(180, 100), (162, 60), (134, 30)])
+        >>> chains = find_sequential_losses(100.0, [(82.0, 60), (64.0, 30)])
     """
-    if not peaks:
+    if not fragment_peaks:
         return []
     
-    sorted_peaks = sorted(peaks, key=lambda x: x[0], reverse=True)
+    all_peaks = [(precursor_mz, 100.0)] + fragment_peaks
+    sorted_peaks = sorted(all_peaks, key=lambda x: x[0], reverse=True)
     chains = []
     
     def build_chain(current_mz: float, current_chain: List[NeutralLoss], depth: int) -> None:
-        if depth >= max_chain_length:
+        if depth >= 3:  # Maximum chain length
             return
         
         for candidate_mz, candidate_intensity in sorted_peaks:
@@ -221,8 +212,8 @@ def find_sequential_losses(
                         precursor_mz=current_mz,
                         fragment_mz=candidate_mz,
                         loss_mass=common_loss_mass,
-                        loss_name=loss_data["name"],
                         loss_formula=loss_data["formula"],
+                        loss_name=loss_data["name"],
                         interpretation=loss_data["interpretation"],
                     )
                     
@@ -265,18 +256,30 @@ def analyze_neutral_losses(
     Returns:
         Analysis results including detected losses and interpretations
     """
-    annotation = annotate_spectrum(fragment_peaks, precursor_mz, mass_tolerance)
+    annotated_peaks = annotate_spectrum(precursor_mz, fragment_peaks, mass_tolerance)
+    
+    # Extract detected losses from annotated peaks
+    detected_losses = detect_neutral_losses(precursor_mz, fragment_peaks, mass_tolerance)
     
     result = {
         "precursor_mz": precursor_mz,
-        "annotated_spectrum": annotation,
+        "annotated_spectrum": annotated_peaks,
+        "peaks": annotated_peaks,
+        "neutral_losses": [loss.to_dict() for loss in detected_losses],
+        "detected_losses": [loss.to_dict() for loss in detected_losses],
     }
     
+    # Add sequential loss chains if requested
     if detect_chains:
-        chains = find_sequential_losses(fragment_peaks, mass_tolerance=mass_tolerance)
-        result["sequential_loss_chains"] = [
-            [loss.to_dict() for loss in chain] for chain in chains
-        ]
+        chains = find_sequential_losses(precursor_mz, fragment_peaks, mass_tolerance)
+        result["sequential_losses"] = chains
+    
+    # Add summary of common losses
+    loss_formulas = [loss.loss_formula for loss in detected_losses]
+    if loss_formulas:
+        result["summary"] = f"Detected {len(loss_formulas)} neutral loss(es): {', '.join(loss_formulas)}"
+    else:
+        result["summary"] = "No common neutral losses detected"
     
     return result
 

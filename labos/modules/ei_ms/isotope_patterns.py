@@ -39,8 +39,8 @@ ISOTOPE_DATA = {
         {"mass": 36.965903, "abundance": 32.0},   # 37Cl
     ],
     "Br": [
-        {"mass": 78.918336, "abundance": 100.0},  # 79Br
-        {"mass": 80.916289, "abundance": 98.0},   # 81Br
+        {"mass": 78.918336, "abundance": 50.7},  # 79Br
+        {"mass": 80.916289, "abundance": 49.3},  # 81Br (nearly 1:1 ratio)
     ],
     "F": [
         {"mass": 18.998403, "abundance": 100.0},  # 19F (monoisotopic)
@@ -61,6 +61,22 @@ class IsotopePeak:
     mass: float
     relative_intensity: float
     label: str  # e.g., "M", "M+1", "M+2"
+    
+    @property
+    def intensity(self) -> float:
+        """Alias for relative_intensity."""
+        return self.relative_intensity
+    
+    @property
+    def mass_offset(self) -> float:
+        """Get mass offset from M peak (0 for M, 1 for M+1, etc.)."""
+        if self.label == "M":
+            return 0.0
+        elif self.label.startswith("M+"):
+            return float(self.label[2:])
+        elif self.label.startswith("M-"):
+            return -float(self.label[2:])
+        return 0.0
     
     def __repr__(self) -> str:
         return f"IsotopePeak({self.label}, m/z={self.mass:.1f}, {self.relative_intensity:.1f}%)"
@@ -191,23 +207,35 @@ def calculate_isotope_pattern(
             continue
         
         isotopes = ISOTOPE_DATA[element]
+        base_mass = isotopes[0]["mass"]
         
-        # M+1 contribution (first heavy isotope)
+        # Check first heavy isotope
         if len(isotopes) > 1:
+            heavy_1_mass = isotopes[1]["mass"]
             heavy_1_abundance = isotopes[1]["abundance"]
-            m_plus_1 += count * heavy_1_abundance
+            base_abundance = isotopes[0]["abundance"]
+            mass_offset_1 = round(heavy_1_mass - base_mass)
+            
+            if mass_offset_1 == 1:
+                # M+1 isotope (like 13C, 15N)
+                m_plus_1 += count * heavy_1_abundance
+                # Binomial contribution to M+2 from two M+1 isotopes
+                if count > 1:
+                    m_plus_2 += (count * (count - 1) / 2) * (heavy_1_abundance / 100) ** 2 * 100
+            elif mass_offset_1 == 2:
+                # M+2 isotope (like 37Cl, 81Br)
+                # For halogens, scale to represent ratio relative to M peak (normalized to 100)
+                m_plus_2 += count * (heavy_1_abundance / base_abundance) * 100
         
-        # M+2 contribution (second heavy isotope or binomial from M+1)
+        # Check second heavy isotope (for elements with 3+ isotopes)
         if len(isotopes) > 2:
+            heavy_2_mass = isotopes[2]["mass"]
             heavy_2_abundance = isotopes[2]["abundance"]
-            m_plus_2 += count * heavy_2_abundance
-        
-        # Binomial contribution to M+2 from two M+1 isotopes
-        if len(isotopes) > 1:
-            heavy_1_abundance = isotopes[1]["abundance"]
-            # Probability of two M+1 isotopes
-            if count > 1:
-                m_plus_2 += (count * (count - 1) / 2) * (heavy_1_abundance / 100) ** 2 * 100
+            mass_offset_2 = round(heavy_2_mass - base_mass)
+            
+            if mass_offset_2 == 2:
+                # Direct M+2 contribution (like 18O, 34S)
+                m_plus_2 += count * heavy_2_abundance
     
     peaks = [
         IsotopePeak(mass=monoisotopic_mass, relative_intensity=100.0, label="M"),
@@ -306,18 +334,21 @@ def identify_halogens(pattern: IsotopePattern) -> List[str]:
     if not m_peak or not m2_peak:
         return identifications
     
+    if m_peak.relative_intensity == 0:
+        return identifications
+    
     m2_ratio = m2_peak.relative_intensity / m_peak.relative_intensity
     
-    # Chlorine signature: M+2 ~30-35% of M
-    if 0.25 < m2_ratio < 0.40:
-        identifications.append("chlorine")
-    
-    # Bromine signature: M+2 ~95-100% of M
-    if 0.90 < m2_ratio < 1.10:
+    # Bromine signature: M+2 ~95-100% of M (check first since it's most distinctive)
+    if 0.85 < m2_ratio < 1.05:
         identifications.append("bromine")
+        return identifications  # Don't check for other halogens if bromine found
     
+    # Chlorine signature: M+2 ~30-35% of M
+    if 0.28 < m2_ratio < 0.38:
+        identifications.append("chlorine")
     # Two chlorines: M+2 ~65%
-    elif 0.55 < m2_ratio < 0.75:
+    elif 0.58 < m2_ratio < 0.72:
         identifications.append("chlorine")
     
     return identifications
