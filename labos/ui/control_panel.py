@@ -712,6 +712,137 @@ def _render_ir_stub_form(mode: str) -> None:
                 _render_spectroscopy_stub_results(result, mode, "IR")
 
 
+def _render_generic_module_runner(descriptor: ModuleDescriptor, meta_registry: MetadataRegistry, mode: str) -> None:
+    """Generic fallback runner for modules without dedicated UI forms."""
+    
+    meta = meta_registry.get(descriptor.module_id)
+    st.markdown("#### Generic Module Runner")
+    
+    if is_learner(mode):
+        st.info(
+            "This module doesn't have a custom form yet. Use this generic runner to "
+            "execute operations by providing parameters as JSON. Check the operation "
+            "descriptions for guidance on required fields."
+        )
+    elif is_lab(mode):
+        show_lab_mode_note("Provide experiment details and operation parameters below.")
+    else:
+        st.caption(f"Generic runner for {descriptor.module_id} v{descriptor.version}")
+        if meta:
+            st.caption(f"Method: {meta.method_name}")
+    
+    if is_builder(mode) and meta:
+        render_debug_toggle(
+            f"Show {descriptor.module_id} registry metadata",
+            key=f"{descriptor.module_id.replace('.', '_')}_registry_metadata",
+            payload=meta.to_dict(),
+        )
+    
+    operation_names = list(descriptor.operations.keys())
+    if not operation_names:
+        st.warning("No operations registered for this module.")
+        return
+    
+    with st.form(f"generic_runner_{descriptor.module_id.replace('.', '_')}", clear_on_submit=False):
+        experiment_name = st.text_input(
+            "Experiment Name",
+            value=f"{descriptor.module_id} run {datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}",
+            help="Descriptive name for the experiment that will be created."
+        )
+        
+        selected_operation = st.selectbox(
+            "Operation",
+            options=operation_names,
+            help="Choose which operation to execute from this module."
+        )
+        
+        if selected_operation:
+            op = descriptor.operations[selected_operation]
+            st.caption(f"**{op.name}**: {op.description}")
+        
+        params_json = st.text_area(
+            "Parameters (JSON)",
+            value="{}",
+            help="Provide operation parameters as a JSON object. Example: {\"sample_id\": \"TEST-001\", \"value\": 42}",
+            height=150,
+        )
+        
+        actor = st.text_input("Actor", value="lab-operator", help="Username or identifier for audit trail.")
+        
+        submitted = st.form_submit_button(f"Run {descriptor.module_id}", use_container_width=True)
+    
+    if submitted:
+        error_message = _validate_text_fields({"Experiment Name": experiment_name, "Actor": actor})
+        if error_message:
+            st.error(error_message)
+            return
+        
+        try:
+            params = json.loads(params_json) if params_json.strip() else {}
+        except json.JSONDecodeError as exc:
+            st.error(f"Invalid JSON in parameters field: {exc}")
+            return
+        
+        if not isinstance(params, dict):
+            st.error("Parameters must be a JSON object (dictionary), not an array or primitive value.")
+            return
+        
+        with st.spinner(f"Running {descriptor.module_id}.{selected_operation}..."):
+            try:
+                result = _run_module_from_ui(
+                    descriptor.module_id,
+                    params,
+                    operation=selected_operation,
+                    experiment_name=experiment_name,
+                    actor=actor,
+                )
+            except Exception as exc:  # pragma: no cover - UI feedback path
+                st.error(f"{descriptor.module_id} execution failed: {exc}")
+                if is_builder(mode):
+                    with st.expander("Show traceback", expanded=False):
+                        st.code(traceback.format_exc())
+            else:
+                st.success(f"✅ {descriptor.module_id}.{selected_operation} completed successfully!")
+                _render_generic_workflow_results(result, mode)
+
+
+def _render_generic_workflow_results(result: WorkflowResult, mode: str) -> None:
+    """Display workflow results for generic module runs."""
+    
+    if is_learner(mode):
+        st.markdown("##### What happened?")
+        st.markdown(
+            f"- Created experiment: `{result.experiment.id}` ({result.experiment.name})\n"
+            f"- Submitted job: `{result.job.id}` with status `{result.job.status.value}`\n"
+            f"- Generated {len(result.datasets)} dataset(s)\n"
+            f"- Logged audit event: `{result.audit_event.event_id}`"
+        )
+    elif is_lab(mode):
+        show_lab_mode_note(
+            f"Job {result.job.id} → {len(result.datasets)} dataset(s). "
+            f"Check Jobs section for details."
+        )
+    
+    if result.datasets:
+        st.markdown("##### Datasets")
+        for ds in result.datasets:
+            with st.expander(f"Dataset {ds.id}", expanded=False):
+                st.json(ds.to_dict())
+    
+    if is_builder(mode):
+        st.markdown("##### Debug payloads")
+        render_debug_toggle(
+            "Show workflow result details",
+            key=f"generic_result_{result.job.id}",
+            payload={
+                "experiment": result.experiment.to_dict(),
+                "job": result.job.to_dict(),
+                "datasets": [ds.to_dict() for ds in result.datasets],
+                "audit_event": result.audit_event.to_dict(),
+            },
+        )
+
+
 def _render_spectroscopy_stub_panel(meta_registry: MetadataRegistry, mode: str) -> None:
     meta = meta_registry.get("spectroscopy")
 
@@ -1704,11 +1835,7 @@ def _render_modules(registry: ModuleRegistry, metadata_registry: MetadataRegistr
             elif descriptor.module_id == "ei_ms.basic_analysis":
                 _render_ei_ms_runner(metadata_registry, mode)
             else:
-                st.button(
-                    "Run (coming soon)",
-                    disabled=True,
-                    help="Execution wiring will be added in a later phase. TODO: attach run handlers to jobs queue.",
-                )
+                _render_generic_module_runner(descriptor, metadata_registry, mode)
         else:
             st.write("_No operations registered._")
 

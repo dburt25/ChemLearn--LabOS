@@ -90,6 +90,7 @@ def register_descriptor(descriptor: ModuleDescriptor) -> None:
 
 
 _BUILTIN_STUBS = [
+    "labos.modules.spectroscopy",
     "labos.modules.eims.fragmentation_stub",
     "labos.modules.ei_ms.basic_analysis",
     "labos.modules.pchem.calorimetry_stub",

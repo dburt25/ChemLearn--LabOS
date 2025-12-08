@@ -12,8 +12,8 @@ from typing import Iterable, List, Mapping, MutableMapping, Sequence
 from .. import ModuleDescriptor, ModuleOperation, register_descriptor
 
 
-MODULE_ID = "spectroscopy"
-VERSION = "0.2.0"
+MODULE_KEY = "spectroscopy"
+MODULE_VERSION = "0.2.0"
 DESCRIPTION = (
     "Spectroscopy utilities exposing NMR and IR analysis entrypoints with "
     "schema-focused outputs."
@@ -249,8 +249,8 @@ def run_nmr_stub(params: Mapping[str, object]) -> MutableMapping[str, object]:
         "annotated_peaks": result.peaks,
         "notes": result.notes,
         "metadata": {
-            "module_id": MODULE_ID,
-            "version": VERSION,
+            "module_id": MODULE_KEY,
+            "version": MODULE_VERSION,
             "nucleus": params.get("nucleus"),
         },
         "received_params": dict(params),
@@ -284,8 +284,8 @@ def run_ir_stub(params: Mapping[str, object]) -> MutableMapping[str, object]:
         "annotated_peaks": result.peaks,
         "notes": result.notes,
         "metadata": {
-            "module_id": MODULE_ID,
-            "version": VERSION,
+            "module_id": MODULE_KEY,
+            "version": MODULE_VERSION,
             "chemical_formula": params.get("chemical_formula"),
         },
         "received_params": dict(params),
@@ -293,47 +293,50 @@ def run_ir_stub(params: Mapping[str, object]) -> MutableMapping[str, object]:
     }
 
 
-descriptor = ModuleDescriptor(
-    module_id=MODULE_ID,
-    version=VERSION,
-    description=DESCRIPTION,
-)
-
-descriptor.register_operation(
-    ModuleOperation(
-        name="analyze_nmr_spectrum",
-        description="Entrypoint for lightweight NMR spectrum analysis.",
-        handler=analyze_nmr_spectrum,
+def _register() -> None:
+    """Register spectroscopy module descriptor and operations with global registry."""
+    descriptor = ModuleDescriptor(
+        module_id=MODULE_KEY,
+        version=MODULE_VERSION,
+        description=DESCRIPTION,
     )
-)
 
-
-descriptor.register_operation(
-    ModuleOperation(
-        name="analyze_ir_spectrum",
-        description="Entrypoint for lightweight IR spectrum analysis.",
-        handler=analyze_ir_spectrum,
+    descriptor.register_operation(
+        ModuleOperation(
+            name="analyze_nmr_spectrum",
+            description="Entrypoint for lightweight NMR spectrum analysis.",
+            handler=analyze_nmr_spectrum,
+        )
     )
-)
 
-
-descriptor.register_operation(
-    ModuleOperation(
-        name="nmr_stub",
-        description="Legacy stub entrypoint for NMR spectroscopy analysis.",
-        handler=run_nmr_stub,
+    descriptor.register_operation(
+        ModuleOperation(
+            name="analyze_ir_spectrum",
+            description="Entrypoint for lightweight IR spectrum analysis.",
+            handler=analyze_ir_spectrum,
+        )
     )
-)
 
-descriptor.register_operation(
-    ModuleOperation(
-        name="ir_stub",
-        description="Legacy stub entrypoint for IR spectroscopy analysis.",
-        handler=run_ir_stub,
+    descriptor.register_operation(
+        ModuleOperation(
+            name="nmr_stub",
+            description="Legacy stub entrypoint for NMR spectroscopy analysis.",
+            handler=run_nmr_stub,
+        )
     )
-)
 
-register_descriptor(descriptor)
+    descriptor.register_operation(
+        ModuleOperation(
+            name="ir_stub",
+            description="Legacy stub entrypoint for IR spectroscopy analysis.",
+            handler=run_ir_stub,
+        )
+    )
+
+    register_descriptor(descriptor)
+
+
+_register()
 
 __all__ = [
     "NMRResult",
