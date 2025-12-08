@@ -550,3 +550,272 @@ def run_import_workflow(params: Dict[str, object]) -> Dict[str, object]:
         "audit_events": audit_records,
         "links": provenance.get("links", {}),
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Workflow Composition Helpers (Phase 2.5.4)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@dataclass(slots=True)
+class JobChain:
+    """Represents a sequential chain of jobs to execute."""
+    
+    experiment_id: str
+    jobs: List[Tuple[str, str, Dict[str, object]]]  # [(module_key, operation, params)]
+    
+    def add_job(
+        self,
+        module_key: str,
+        operation: str = "analyze",
+        params: Optional[Dict[str, object]] = None,
+    ) -> "JobChain":
+        """Add a job to the chain.
+        
+        Args:
+            module_key: Module identifier (e.g., "pchem.calorimetry")
+            operation: Operation name within module
+            params: Job parameters
+            
+        Returns:
+            Self for method chaining
+        """
+        self.jobs.append((module_key, operation, params or {}))
+        return self
+    
+    def length(self) -> int:
+        """Return number of jobs in chain."""
+        return len(self.jobs)
+
+
+@dataclass(slots=True)
+class ParallelJobs:
+    """Represents a collection of jobs to execute in parallel."""
+    
+    experiment_id: str
+    jobs: List[Tuple[str, str, Dict[str, object]]]  # [(module_key, operation, params)]
+    
+    def add_job(
+        self,
+        module_key: str,
+        operation: str = "analyze",
+        params: Optional[Dict[str, object]] = None,
+    ) -> "ParallelJobs":
+        """Add a job to the parallel group.
+        
+        Args:
+            module_key: Module identifier
+            operation: Operation name
+            params: Job parameters
+            
+        Returns:
+            Self for method chaining
+        """
+        self.jobs.append((module_key, operation, params or {}))
+        return self
+    
+    def length(self) -> int:
+        """Return number of jobs in parallel group."""
+        return len(self.jobs)
+
+
+def chain_jobs(
+    experiment_id: str,
+    job_specs: Sequence[Tuple[str, str, Dict[str, object]]] | None = None,
+) -> JobChain:
+    """Create a sequential job chain for multi-step analyses.
+    
+    Args:
+        experiment_id: Experiment identifier
+        job_specs: Optional initial job specifications [(module_key, operation, params)]
+        
+    Returns:
+        JobChain for building sequential workflows
+        
+    Example:
+        >>> chain = chain_jobs("EXP-001")
+        >>> chain.add_job("import.wizard", "import_csv", {"file": "data.csv"})
+        >>> chain.add_job("ei_ms.basic_analysis", "analyze", {"precursor_mass": 250})
+    """
+    chain = JobChain(experiment_id=experiment_id, jobs=[])
+    if job_specs:
+        for module_key, operation, params in job_specs:
+            chain.add_job(module_key, operation, params)
+    return chain
+
+
+def parallel_jobs(
+    experiment_id: str,
+    job_specs: Sequence[Tuple[str, str, Dict[str, object]]] | None = None,
+) -> ParallelJobs:
+    """Create parallel jobs for concurrent execution.
+    
+    Args:
+        experiment_id: Experiment identifier
+        job_specs: Optional initial job specifications [(module_key, operation, params)]
+        
+    Returns:
+        ParallelJobs for building concurrent workflows
+        
+    Example:
+        >>> parallel = parallel_jobs("EXP-002")
+        >>> parallel.add_job("pchem.calorimetry", "analyze", {"delta_t": 4.2})
+        >>> parallel.add_job("spectroscopy", "nmr_stub", {"nucleus": "1H"})
+    """
+    jobs = ParallelJobs(experiment_id=experiment_id, jobs=[])
+    if job_specs:
+        for module_key, operation, params in job_specs:
+            jobs.add_job(module_key, operation, params)
+    return jobs
+
+
+def execute_job_chain(
+    chain: JobChain,
+    *,
+    actor: str = "local-user",
+    module_registry: ModuleRegistry | OperationRegistryProtocol | None = None,
+    pass_outputs: bool = True,
+) -> List[WorkflowResult]:
+    """Execute a job chain sequentially, optionally passing outputs to next job.
+    
+    Args:
+        chain: JobChain to execute
+        actor: User identifier for audit trail
+        module_registry: Module registry for operation lookup
+        pass_outputs: If True, pass previous job's dataset ID to next job as input
+        
+    Returns:
+        List of WorkflowResults for each job in order
+        
+    Example:
+        >>> chain = chain_jobs("EXP-001")
+        >>> chain.add_job("import.wizard", params={"file": "data.csv"})
+        >>> chain.add_job("ei_ms.basic_analysis", params={"precursor_mass": 250})
+        >>> results = execute_job_chain(chain)
+        >>> all(r.succeeded() for r in results)  # Check all succeeded
+        True
+    """
+    results: List[WorkflowResult] = []
+    previous_dataset_id: Optional[str] = None
+    
+    for module_key, operation, params in chain.jobs:
+        # Inject previous output as input if requested
+        job_params = dict(params)
+        if pass_outputs and previous_dataset_id:
+            job_params.setdefault("input_dataset_id", previous_dataset_id)
+        
+        try:
+            result = run_module_job(
+                module_key=module_key,
+                experiment_id=chain.experiment_id,
+                operation=operation,
+                params=job_params,
+                actor=actor,
+                module_registry=module_registry,
+            )
+        except Exception as exc:
+            # Capture exception as error result to allow inspection
+            from .experiments import Experiment, ExperimentStatus
+            from .jobs import Job, JobStatus
+            exp = Experiment(
+                id=chain.experiment_id,
+                name=f"Chain execution for {chain.experiment_id}",
+                status=ExperimentStatus.FAILED,
+            )
+            job = Job(
+                id=_prefixed_id("JOB"),
+                experiment_id=chain.experiment_id,
+                kind=f"{module_key}:{operation}",
+                status=JobStatus.FAILED,
+                params=job_params,
+                error_message=str(exc),
+            )
+            result = WorkflowResult(
+                experiment=exp,
+                job=job,
+                dataset=None,
+                audit_events=[],
+                error=str(exc),
+            )
+        
+        results.append(result)
+        
+        # Stop chain execution if job failed
+        if not result.succeeded():
+            break
+        
+        # Store dataset ID for next job
+        if result.dataset:
+            previous_dataset_id = result.dataset.id
+    
+    return results
+
+
+def execute_parallel_jobs(
+    parallel: ParallelJobs,
+    *,
+    actor: str = "local-user",
+    module_registry: ModuleRegistry | OperationRegistryProtocol | None = None,
+) -> List[WorkflowResult]:
+    """Execute parallel jobs (currently sequential, ready for async in future).
+    
+    Args:
+        parallel: ParallelJobs to execute
+        actor: User identifier for audit trail
+        module_registry: Module registry for operation lookup
+        
+    Returns:
+        List of WorkflowResults (order matches job addition order)
+        
+    Note:
+        Current implementation executes sequentially. Future enhancement will
+        add async execution with concurrent.futures or asyncio.
+        
+    Example:
+        >>> parallel = parallel_jobs("EXP-002")
+        >>> parallel.add_job("pchem.calorimetry", params={"delta_t": 4.2})
+        >>> parallel.add_job("spectroscopy", "nmr_stub", params={"nucleus": "1H"})
+        >>> results = execute_parallel_jobs(parallel)
+        >>> len(results)
+        2
+    """
+    results: List[WorkflowResult] = []
+    
+    for module_key, operation, params in parallel.jobs:
+        try:
+            result = run_module_job(
+                module_key=module_key,
+                experiment_id=parallel.experiment_id,
+                operation=operation,
+                params=params,
+                actor=actor,
+                module_registry=module_registry,
+            )
+        except Exception as exc:
+            # Capture exception as error result (parallel continues execution)
+            from .experiments import Experiment, ExperimentStatus
+            from .jobs import Job, JobStatus
+            exp = Experiment(
+                id=parallel.experiment_id,
+                name=f"Parallel execution for {parallel.experiment_id}",
+                status=ExperimentStatus.RUNNING,  # Parallel continues
+            )
+            job = Job(
+                id=_prefixed_id("JOB"),
+                experiment_id=parallel.experiment_id,
+                kind=f"{module_key}:{operation}",
+                status=JobStatus.FAILED,
+                params=params,
+                error_message=str(exc),
+            )
+            result = WorkflowResult(
+                experiment=exp,
+                job=job,
+                dataset=None,
+                audit_events=[],
+                error=str(exc),
+            )
+        
+        results.append(result)
+    
+    return results
