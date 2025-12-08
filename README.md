@@ -12,33 +12,31 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 
 ## Getting started
 1. **Create and activate a virtual environment (Python 3.10+)**
-   ```bash
+   ```powershell
    python -m venv .venv
-   source .venv/bin/activate
+   .\.venv\Scripts\Activate.ps1  # Windows PowerShell
+   # OR: source .venv/bin/activate  # macOS/Linux
    ```
-2. **Install dependencies**
-   ```bash
+2. **Install in editable mode** (pulls dependencies from pyproject.toml)
+   ```powershell
    pip install -e .
    ```
 3. **Run tests**
-   ```bash
-   pytest
+   ```powershell
+   python -m unittest discover -s tests
    ```
-4. **Initialize storage and run a simple CLI sequence** (creates `data/` with registry, audit, and job folders)
-   ```bash
-   labos init
-   labos new-experiment --user student --title "Week1" --purpose "Buffer prep"
-   labos run-module --experiment-id EXP-001 --module-id eims.fragmentation --operation compute --actor student --params-json '{"precursor_mz": 250}'
+4. **Initialize storage and try the CLI**
+   ```powershell
+   python -m labos.cli.main experiment create --name "Week1"
+   python -m labos.cli.main job run --module demo.calorimetry --params '{}'
    ```
-   Replace `EXP-001` with the identifier printed by `new-experiment` if your sequence starts at a different index.
-5. **Launch the Streamlit control panel**
-   ```bash
+5. **Launch Streamlit control panel**
+   ```powershell
    streamlit run app.py
    ```
-6. **Demo CLI (in-memory, no persistence)**
-   ```bash
-   python -m labos.cli.main experiment create --name "Kinetic sweep"
-   python -m labos.cli.main job run --module demo.calorimetry --params '{"temp": 298}'
+6. **Quick verification before commits**
+   ```powershell
+   .\scripts\verify-local.ps1
    ```
 
 ## Architecture at a glance
@@ -48,36 +46,12 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
 - **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
 
-## Container workflow
-- **Build the image** (run from the repo root):
-   ```bash
-   docker build -t labos-dev .
-   ```
-- **Run ad-hoc commands** inside a container (the Dockerfile now launches Streamlit by default; pass another command for shells or tests):
-   - macOS/Linux:
-      ```bash
-      ./scripts/docker-run.sh "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
-      ```
-   - Windows PowerShell:
-      ```powershell
-      ./scripts/docker-run.ps1 "streamlit run app.py --server.address 0.0.0.0 --server.port 8501"
-      ```
-   The helper scripts rebuild the image, mount the repo into `/labos`, forward port `8501`, and execute the provided command (omit the quoted command to stick with the default Streamlit launch).
-- **Use Docker Compose** to boot the Streamlit UI directly:
-   ```bash
-   docker compose up --build
-   ```
-   Compose maps port `8501` and watches the local workspace through a bind mount, so code edits are reflected on refresh. Provide `DOCKER_HUB_USER` / `DOCKER_HUB_PAT` values in a local `.env` (copy from `.env.example`) when you want to use the bundled `docker-scout` service for CVE scans, or rely on your host `~/.docker/config.json` which is mounted automatically. Use `docker compose down` to stop the container.
+## Docker setup (archived)
+Docker configs preserved in `.archive/` for CI/deployment scenarios. Active development uses local `.venv` for speed.
 
-### Environment setup & secrets
-- Copy `.env.example` to `.env` and set any credentials required by helper services (e.g., Docker Hub PAT). This file is git-ignored for safety.
-- Run `docker login` locally so both the host CLI and the compose-based `docker-scout` helper can reuse your registry session.
-- Until peer reviewers are available, every verification run (tests + scanners) must be noted in `VALIDATION_LOG.md` with the tag **self reviewed**—include the command set you ran and whether any issues surfaced.
-
-## Docker AI ("Gordon") and Docker Scout
-- Review the workflow captured in [`docs/docker_ai_gordon.md`](docs/docker_ai_gordon.md) for Gordon prompts that analyze running containers, rate the Dockerfile, and suggest docker-compose optimizations.
-- Quickly scan built images for CVEs with Docker Scout directly from the repo: `docker compose run --rm docker-scout cves labos-dev:latest --only-severity critical,high`. Store your Docker Hub credentials in a local `.env` file (`DOCKER_HUB_USER`, `DOCKER_HUB_PAT`) so the helper container can authenticate without interactive prompts.
-- Use Docker Desktop's **Ask Gordon** tab (✨ icon) for live monitoring, and periodically run `docker ai "Check for updates to Docker Desktop and my images"` to stay current.
+## Environment & secrets
+- Copy `.env.example` to `.env` if external services require credentials. This file is git-ignored.
+- Every verification run must be noted in `VALIDATION_LOG.md` with timestamp and command evidence.
 
 ## CLI usage
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
@@ -97,22 +71,17 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - All outputs are educational only until validation dossiers are produced; keep audit logs current and prefer deterministic examples for demos.
 
 ## Dependency management
-- The active virtual environment is tracked via `.venv/`. When you add or upgrade packages, run `pip install <package>` inside the venv and then refresh the lockfile:
-   ```powershell
-   Set-Location "C:/Users/<you>/Dev/1. LabOS"
-   . ./.venv/Scripts/Activate.ps1
-   pip freeze > requirements.txt
-   ```
-- The `requirements.txt` file is fully pinned; Docker builds and CI use it to guarantee reproducible installs. Always commit the updated file after regenerating it.
+- Runtime dependencies live in `pyproject.toml` under `[project.dependencies]`.
+- Add new packages: `pip install <package>`, then update `pyproject.toml` manually with version constraint.
+- Regenerate lockfile: `pip freeze > requirements.txt` (used for CI reproducibility).
+- Always commit both `pyproject.toml` and `requirements.txt` after dependency changes.
 
 ## Verification workflow
-- Run `pwsh ./scripts/verify.ps1` before opening a PR or handing changes to another agent. The helper will:
-   1. Build the container image
-   2. Execute `python -m unittest`
-   3. Call Docker Gordon for both "rate" and "analyze" prompts
-   4. Scan the freshly built image with Docker Scout
-   5. Record results under `logs/verify/<timestamp>/`
-- Each execution appends a "self reviewed" block to `VALIDATION_LOG.md`; keep this history intact so future contributors can audit the verification trail until formal peer review starts.
+- Run `.\scripts\verify-local.ps1` before commits. The script will:
+   1. Execute `python -m unittest discover -s tests`
+   2. Check import integrity
+   3. Append results to `VALIDATION_LOG.md`
+- Keep validation history intact for audit trail.
 
 ## Programmatic API
 - Use `LabOSRuntime` from `labos.runtime` to access the config loader, audit logger, registries, and job runner as a single facade.

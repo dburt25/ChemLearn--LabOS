@@ -18,7 +18,12 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
 ]
-dependencies = []
+dependencies = [
+    "colorama>=0.4.6",
+    "packaging>=24.2,<25",
+    "pytest>=9.0,<10",
+    "streamlit>=1.39.0,<2",
+]
 
 [project.scripts]
 labos = "labos.cli:main"

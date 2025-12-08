@@ -13,23 +13,33 @@ This guide is the on-ramp for contributors working on ChemLearn LabOS during the
 
 ## Environment setup
 1. Install dependencies in editable mode (Python 3.10+):
-   ```bash
+   ```powershell
    python -m venv .venv
-   source .venv/bin/activate
+   .\.venv\Scripts\Activate.ps1  # Windows
+   # OR: source .venv/bin/activate  # macOS/Linux
    pip install -e .
    ```
-2. Initialize the workspace directories and audit/registry stores:
-   ```bash
-   labos init
+2. Verify installation:
+   ```powershell
+   python -m unittest discover -s tests
+   streamlit run app.py  # Should open browser to localhost:8501
    ```
-3. Optional: point `LABOS_ROOT` (or `--root`) to isolate local runs; other paths (e.g., `LABOS_DATA_DIR`, `LABOS_AUDIT_DIR`) inherit from it.
+3. Quick verification before committing:
+   ```powershell
+   .\scripts\verify-local.ps1
+   ```
+4. Optional: point `LABOS_ROOT` (or `--root`) to isolate local runs; other paths inherit from it.
 
 ## Running tests
-Use the standard library test runner so we avoid optional UI dependencies during CI:
-```bash
+Use the standard library test runner:
+```powershell
 python -m unittest discover -s tests
 ```
-8. `pwsh ./scripts/verify.ps1` to capture a full "self reviewed" run (unit tests, Docker AI diagnostics, Docker Scout CVE scan). The script writes detailed logs under `logs/verify/<timestamp>/` and appends a summary block to `VALIDATION_LOG.md`.
+For quick pre-commit verification:
+```powershell
+.\scripts\verify-local.ps1
+```
+The script appends results to `VALIDATION_LOG.md` with timestamp.
 
 ## Working with the CLI and runtime
 Working CLI commands (Bot 48) share the same registries and storage as the UI: `labos init`, `labos new-experiment`, `labos register-dataset`, and `labos run-module`.
