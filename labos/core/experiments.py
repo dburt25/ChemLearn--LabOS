@@ -37,6 +37,22 @@ class ExperimentStatus(str, Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    ARCHIVED = "archived"
+
+
+# Valid state transitions for experiment lifecycle
+VALID_TRANSITIONS: Dict[ExperimentStatus, List[ExperimentStatus]] = {
+    ExperimentStatus.DRAFT: [ExperimentStatus.RUNNING, ExperimentStatus.ARCHIVED],
+    ExperimentStatus.RUNNING: [ExperimentStatus.COMPLETED, ExperimentStatus.FAILED, ExperimentStatus.ARCHIVED],
+    ExperimentStatus.COMPLETED: [ExperimentStatus.ARCHIVED],
+    ExperimentStatus.FAILED: [ExperimentStatus.ARCHIVED, ExperimentStatus.DRAFT],  # Allow retry from failure
+    ExperimentStatus.ARCHIVED: [],  # Terminal state
+}
+
+
+class InvalidStateTransitionError(ValueError):
+    """Raised when attempting an invalid experiment status transition."""
+    pass
 
 
 class ExperimentMode(str, Enum):
@@ -79,20 +95,51 @@ class Experiment:
         self.jobs.append(job_id)
         self.updated_at = _utc_now()
 
-    def mark_running(self) -> None:
-        self.status = ExperimentStatus.RUNNING
+    def update_status(self, new_status: ExperimentStatus) -> None:
+        """Update experiment status with transition validation.
+        
+        Args:
+            new_status: Target status
+            
+        Raises:
+            InvalidStateTransitionError: If transition is not allowed
+        """
+        if new_status == self.status:
+            return  # No-op if already at target status
+            
+        valid_targets = VALID_TRANSITIONS.get(self.status, [])
+        if new_status not in valid_targets:
+            raise InvalidStateTransitionError(
+                f"Invalid transition from {self.status.value} to {new_status.value}. "
+                f"Valid transitions: {[s.value for s in valid_targets]}"
+            )
+        
+        self.status = new_status
         self.updated_at = _utc_now()
+
+    def mark_running(self) -> None:
+        """Transition experiment to RUNNING status."""
+        self.update_status(ExperimentStatus.RUNNING)
 
     def mark_completed(self) -> None:
-        self.status = ExperimentStatus.COMPLETED
-        self.updated_at = _utc_now()
+        """Transition experiment to COMPLETED status."""
+        self.update_status(ExperimentStatus.COMPLETED)
 
     def mark_failed(self) -> None:
-        self.status = ExperimentStatus.FAILED
-        self.updated_at = _utc_now()
+        """Transition experiment to FAILED status."""
+        self.update_status(ExperimentStatus.FAILED)
+
+    def mark_archived(self) -> None:
+        """Transition experiment to ARCHIVED status (terminal)."""
+        self.update_status(ExperimentStatus.ARCHIVED)
 
     def is_finished(self) -> bool:
+        """Check if experiment is in terminal state."""
         return self.status in {ExperimentStatus.COMPLETED, ExperimentStatus.FAILED}
+    
+    def is_active(self) -> bool:
+        """Check if experiment can accept new jobs."""
+        return self.status in {ExperimentStatus.DRAFT, ExperimentStatus.RUNNING}
 
     def short_label(self) -> str:
         return f"{self.id} — {self.name}"

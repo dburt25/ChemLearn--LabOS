@@ -47,7 +47,7 @@ def _dataset_list_factory() -> List[str]:
 
 @dataclass(slots=True)
 class Job:
-    """Phase 0 job record with start/finish helpers."""
+    """Phase 0 job record with start/finish helpers and retry support."""
 
     id: str
     experiment_id: str
@@ -60,6 +60,8 @@ class Job:
     created_at: datetime = field(default_factory=_utc_now)
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    max_retries: int = 3
+    retry_count: int = 0
 
     def __post_init__(self) -> None:
         self.id = _validate_id(self.id, "JOB-")
@@ -95,6 +97,28 @@ class Job:
         for ds in dataset_ids:
             if ds not in self.datasets_in:
                 self.datasets_in.append(ds)
+
+    def can_retry(self) -> bool:
+        """Check if job can be retried."""
+        return self.retry_count < self.max_retries and self.status == JobStatus.FAILED
+
+    def retry(self) -> None:
+        """Retry a failed job.
+        
+        Raises:
+            ValueError: If job cannot be retried (not failed or max retries exceeded)
+        """
+        if self.status != JobStatus.FAILED:
+            raise ValueError(f"Cannot retry job in status {self.status.value}. Only FAILED jobs can be retried.")
+        
+        if self.retry_count >= self.max_retries:
+            raise ValueError(f"Max retries ({self.max_retries}) exceeded for job {self.id}")
+        
+        self.retry_count += 1
+        self.status = JobStatus.QUEUED
+        self.error_message = None
+        self.started_at = None
+        self.finished_at = None
 
     def to_dict(self) -> Dict[str, Any]:
         payload = asdict(self)
@@ -141,6 +165,8 @@ class Job:
                 created_at=created_at,
                 started_at=started_at,
                 finished_at=finished_at,
+                max_retries=int(payload.get("max_retries", 3)),
+                retry_count=int(payload.get("retry_count", 0)),
             )
         except Exception as exc:
             logger.warning("Skipping job %s due to validation error: %s", payload.get("id", "<unknown>"), exc)
