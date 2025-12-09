@@ -338,6 +338,11 @@ def _register() -> None:
 
 _register()
 
+# Import submodules (UV-Vis auto-registers on import)
+from . import uv_vis
+from . import ir_analysis
+from . import nmr_analysis
+
 __all__ = [
     "NMRResult",
     "IRResult",
@@ -345,4 +350,7 @@ __all__ = [
     "analyze_ir_spectrum",
     "run_nmr_stub",
     "run_ir_stub",
+    "uv_vis",
+    "ir_analysis",
+    "nmr_analysis",
 ]

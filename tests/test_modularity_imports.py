@@ -12,7 +12,7 @@ FORBIDDEN_IN_MODULES: tuple[str, ...] = ("labos.ui",)
 
 
 def _collect_import_targets(path: Path) -> Set[str]:
-    tree = ast.parse(path.read_text())
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     imports: Set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
