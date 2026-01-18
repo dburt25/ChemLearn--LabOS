@@ -11,6 +11,8 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: colorama>=0.4.6
+Requires-Dist: numpy<3,>=1.26
+Requires-Dist: opencv-python-headless<5,>=4.10
 Requires-Dist: packaging<25,>=24.2
 Requires-Dist: pytest<10,>=9.0
 Requires-Dist: streamlit<2,>=1.39.0

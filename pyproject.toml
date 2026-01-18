@@ -20,6 +20,8 @@ classifiers = [
 ]
 dependencies = [
     "colorama>=0.4.6",
+    "numpy>=1.26,<3",
+    "opencv-python-headless>=4.10,<5",
     "packaging>=24.2,<25",
     "pytest>=9.0,<10",
     "streamlit>=1.39.0,<2",
@@ -27,6 +29,11 @@ dependencies = [
 
 [project.scripts]
 labos = "labos.cli:main"
+scanner = "scanner.cli:main"
 
 [tool.setuptools]
-packages = ["labos", "labos.core", "labos.modules"]
+packages = ["labos", "labos.core", "labos.modules", "scanner", "scanner.backends"]
+package-dir = {"" = ".", "scanner" = "src/scanner"}
+
+[tool.setuptools.package-data]
+scanner = ["py.typed"]
