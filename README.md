@@ -1,88 +1,52 @@
-# ChemLearn LabOS
+# Multiview 3D Scanner (Phase 0)
 
-ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates experiments, jobs, datasets, and scientific learning tools across a unified stack. The current release is **Phase 2.5.3 (hardening)**, focusing on stabilizing the working skeleton and tightening validation around the existing workflows.
+A modular, metadata-aware multiview 3D reconstruction pipeline focused on accuracy tiers and reproducibility. Phase 0 delivers a vertical slice that runs end-to-end and prepares the architecture for future precision upgrades.
 
-## What works in Phase 2.5.3
-- Core experiment, job, dataset, and audit pipeline backed by JSON registries and workflow helpers.
-- Deterministic PChem and EI-MS tools plus the Import Wizard stub, each registered as modules you can run through the CLI or workflows.
-- Streamlit control panel with Learner, Lab, and Builder modes that surface registries, module metadata, and recent audit context.
-- Basic CLI commands for initializing storage, creating experiments, registering datasets, and running module jobs.
+## Purpose
+- Provide a **multiview** reconstruction pipeline that accepts video inputs and prepares a consistent output + reporting surface.
+- Establish modular interfaces so future upgrades can plug in dense MVS / TSDF / VIO and precision-calibrated workflows.
 
-> External API and ML integrations remain stubs in this phase, and the project is intended for educational/research use only—not for clinical workflows.
+## Non-goals (Phase 0)
+- Achieving the target precision tiers today.
+- Providing a dense, watertight mesh.
+- Automatic scale calibration without metadata or external references.
 
-## Getting started
-1. **Create and activate a virtual environment (Python 3.10+)**
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1  # Windows PowerShell
-   # OR: source .venv/bin/activate  # macOS/Linux
-   ```
-2. **Install in editable mode** (pulls dependencies from pyproject.toml)
-   ```powershell
-   pip install -e .
-   ```
-3. **Run tests**
-   ```powershell
-   python -m unittest discover -s tests
-   ```
-4. **Initialize storage and try the CLI**
-   ```powershell
-   python -m labos.cli.main experiment create --name "Week1"
-   python -m labos.cli.main job run --module demo.calorimetry --params '{}'
-   ```
-5. **Launch Streamlit control panel**
-   ```powershell
-   streamlit run app.py
-   ```
-6. **Quick verification before commits**
-   ```powershell
-   .\scripts\verify-local.ps1
-   ```
+## Accuracy Tiers (Targets, not Phase 0 claims)
+- **Tier S** (small objects < 1 m³): target 0.01 mm precision (metrology-grade)
+- **Tier R** (rooms/buildings): target 1.0 mm precision
+- **Tier A** (aerial overhead): target 10 cm precision
 
-## Architecture at a glance
-- **labos/core** – Workflow helpers, JSON-backed experiment/dataset/job registries, audit logging, and the runtime facade.
-- **labos/modules** – Educational module stubs (EI-MS fragmentation, PChem calorimetry, Import Wizard) registered for demos and jobs.
-- **labos/ui** – Streamlit panels (Learner, Lab, Builder) wired to registries and module metadata for control and review.
-- **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
-- **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
+Phase 0 reports what prevents reaching these tiers and **never** claims to meet them.
 
-## Docker setup (archived)
-Docker configs preserved in `.archive/` for CI/deployment scenarios. Active development uses local `.venv` for speed.
+## Quickstart
+```bash
+make setup
+make run-demo
+```
 
-## Environment & secrets
-- Copy `.env.example` to `.env` if external services require credentials. This file is git-ignored.
-- Every verification run must be noted in `VALIDATION_LOG.md` with timestamp and command evidence.
+Run the pipeline on your own video:
+```bash
+scanner pipeline --input /path/to/video.mov --out /path/to/output
+```
 
-## CLI usage
-- Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
-- Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
+## Outputs
+- `sparse.ply` (if COLMAP succeeds)
+- `run.json` (always)
+- `reconstruction_metrics.json` (always)
+- Blender import instructions: `docs/blender_import.md`
 
-## Key documentation
-- Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
-- Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
-- Architecture and modules: [`docs/README_ARCHITECTURE.md`](docs/README_ARCHITECTURE.md), [`docs/MODULARITY_GUIDELINES.md`](docs/MODULARITY_GUIDELINES.md)
-- Phase/state snapshots: [`docs/SWARM_STATUS.md`](docs/SWARM_STATUS.md), [`docs/PHASES_OVERVIEW.md`](docs/PHASES_OVERVIEW.md), [`docs/CURRENT_CAPABILITIES.md`](docs/CURRENT_CAPABILITIES.md)
-- Swarm governance & permissions: [`docs/SWARM_GOVERNANCE.md`](docs/SWARM_GOVERNANCE.md), [`docs/BOT_PERMISSIONS_MATRIX.md`](docs/BOT_PERMISSIONS_MATRIX.md)
-- Compliance and provenance: [`docs/COMPLIANCE_CHECKLIST.md`](docs/COMPLIANCE_CHECKLIST.md), [`docs/METHOD_AND_DATA.md`](docs/METHOD_AND_DATA.md), [`docs/AUDIT_LOG_FORMAT.md`](docs/AUDIT_LOG_FORMAT.md)
-- Notebook onboarding: [`docs/quickstart_notebook.md`](docs/quickstart_notebook.md)
+## Limitations (Phase 0)
+- Depends on COLMAP for sparse reconstruction; if missing, the pipeline exits non-zero and writes guidance.
+- Metadata extraction is best-effort; missing intrinsics/orientation reduces scale confidence.
+- No dense reconstruction or meshing.
 
-## Notes
-- Modules can also be auto-discovered via `LABOS_MODULES` (comma-separated import paths) when you want to load external plugins.
-- All outputs are educational only until validation dossiers are produced; keep audit logs current and prefer deterministic examples for demos.
+## Roadmap
+- Dense MVS backend + TSDF fusion.
+- Camera calibration ingestion and improved scale estimation.
+- Precision tier validation suites and ground truth datasets.
 
-## Dependency management
-- Runtime dependencies live in `pyproject.toml` under `[project.dependencies]`.
-- Add new packages: `pip install <package>`, then update `pyproject.toml` manually with version constraint.
-- Regenerate lockfile: `pip freeze > requirements.txt` (used for CI reproducibility).
-- Always commit both `pyproject.toml` and `requirements.txt` after dependency changes.
+## Documentation
+- `docs/architecture.md`
+- `docs/decisions.md`
+- `docs/blender_import.md`
 
-## Verification workflow
-- Run `.\scripts\verify-local.ps1` before commits. The script will:
-   1. Execute `python -m unittest discover -s tests`
-   2. Check import integrity
-   3. Append results to `VALIDATION_LOG.md`
-- Keep validation history intact for audit trail.
-
-## Programmatic API
-- Use `LabOSRuntime` from `labos.runtime` to access the config loader, audit logger, registries, and job runner as a single facade.
-- See `docs/api/internal_usage.md` for examples of creating experiments, registering datasets, and running module operations in code.

@@ -33,9 +33,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
 
-    - name: Run all tests
+    - name: Run scanner tests
       run: |
-        python -m unittest discover -s tests -p 'test_*.py' -v
+        pytest -m scanner
 
     - name: Upload test results (on failure)
       if: failure()
@@ -64,7 +64,7 @@ jobs:
         Invoke-ScriptAnalyzer -Path scripts/docker-run.ps1 -Recurse -Severity Error
 
   integration:
-    name: Integration Tests
+    name: Scanner Integration Tests
     runs-on: ubuntu-latest
     needs: test
 
@@ -75,7 +75,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
         cache: 'pip'
 
     - name: Install dependencies
@@ -83,14 +83,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e .
 
-    - name: Run integration tests
+    - name: Run scanner integration tests
       run: |
-        python -m unittest discover -s tests/integration -p 'test_*.py' -v
-
-    - name: Verify CLI functionality
-      run: |
-        python -m labos.cli.app --help
-        python -m labos.cli.app list-modules
+        pytest -m scanner -k pipeline
 
   docs:
     name: Documentation Check
