@@ -20,6 +20,7 @@ classifiers = [
 ]
 dependencies = [
     "colorama>=0.4.6",
+    "numpy>=2.0.0,<3",
     "packaging>=24.2,<25",
     "pytest>=9.0,<10",
     "streamlit>=1.39.0,<2",
@@ -29,4 +30,12 @@ dependencies = [
 labos = "labos.cli:main"
 
 [tool.setuptools]
-packages = ["labos", "labos.core", "labos.modules"]
+packages = [
+    "labos",
+    "labos.core",
+    "labos.modules",
+    "src",
+    "src.scanner",
+    "src.scanner.geo",
+    "src.scanner.validation",
+]
