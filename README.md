@@ -62,6 +62,7 @@ Docker configs preserved in `.archive/` for CI/deployment scenarios. Active deve
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
 - Architecture and modules: [`docs/README_ARCHITECTURE.md`](docs/README_ARCHITECTURE.md), [`docs/MODULARITY_GUIDELINES.md`](docs/MODULARITY_GUIDELINES.md)
 - Phase/state snapshots: [`docs/SWARM_STATUS.md`](docs/SWARM_STATUS.md), [`docs/PHASES_OVERVIEW.md`](docs/PHASES_OVERVIEW.md), [`docs/CURRENT_CAPABILITIES.md`](docs/CURRENT_CAPABILITIES.md)
+- Scanner calibration: [`docs/calibration.md`](docs/calibration.md), [`docs/anchors_v2.md`](docs/anchors_v2.md)
 - Swarm governance & permissions: [`docs/SWARM_GOVERNANCE.md`](docs/SWARM_GOVERNANCE.md), [`docs/BOT_PERMISSIONS_MATRIX.md`](docs/BOT_PERMISSIONS_MATRIX.md)
 - Compliance and provenance: [`docs/COMPLIANCE_CHECKLIST.md`](docs/COMPLIANCE_CHECKLIST.md), [`docs/METHOD_AND_DATA.md`](docs/METHOD_AND_DATA.md), [`docs/AUDIT_LOG_FORMAT.md`](docs/AUDIT_LOG_FORMAT.md)
 - Notebook onboarding: [`docs/quickstart_notebook.md`](docs/quickstart_notebook.md)
@@ -69,6 +70,7 @@ Docker configs preserved in `.archive/` for CI/deployment scenarios. Active deve
 ## Notes
 - Modules can also be auto-discovered via `LABOS_MODULES` (comma-separated import paths) when you want to load external plugins.
 - All outputs are educational only until validation dossiers are produced; keep audit logs current and prefer deterministic examples for demos.
+- **Calibration is mandatory for SMALL_OBJECT scanning.** Run the scanner calibration CLI to generate `camera.json` before marker-board anchoring. See [`docs/calibration.md`](docs/calibration.md).
 
 ## Dependency management
 - Runtime dependencies live in `pyproject.toml` under `[project.dependencies]`.
