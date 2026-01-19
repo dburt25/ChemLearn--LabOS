@@ -49,6 +49,21 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 ## Scanner anchoring (experimental)
 - Marker-board anchoring is the first true metric path for SMALL_OBJECT scanning because the board + calibrated intrinsics provide scale, origin, and orientation.
 - **Metrology disclaimer:** millimeter-level accuracy requires calibrated intrinsics, controlled capture, and verification against known measurements. The anchor gates record reprojection quality but do not replace validation.
+## Scale & Units (3D Scanner Workflows)
+Structure-from-motion and multi-view reconstruction are scale ambiguous: without a reference, the same geometry can represent centimeters or kilometers. The scanner pipeline adds explicit scale constraints so reconstructions do not drift into absurd units.
+
+**How scale is constrained**
+- Choose a scan regime (`small_object`, `room`, or `aerial`) to define expected size and absolute hard bounds.
+- Provide a user reference when possible (distance pairs or known object size).
+- When no reference is provided, the system reports LOW confidence and marks outputs as unscaled.
+
+**User references**
+- `--ref-distance-m` with `--ref-pair "x1,y1,z1:x2,y2,z2"` to supply a known distance in model coordinates.
+- `--ref-scale-factor` as an expert-only override (logged as a warning).
+
+**Precision disclaimer**
+- The scale constraint system is a guardrail against nonsense units. It does **not** claim metrology accuracy.
+- Extremely tight tolerances (e.g., 0.01 mm) require a dedicated, explicit metrology workflow.
 
 ## Docker setup (archived)
 Docker configs preserved in `.archive/` for CI/deployment scenarios. Active development uses local `.venv` for speed.

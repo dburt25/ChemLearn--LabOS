@@ -4,6 +4,7 @@ Document scientific validation activities once numerical or analytical logic shi
 
 | Date (UTC) | Component | Change Summary | Evidence |
 | --- | --- | --- | --- |
+| 2026-01-18T02:30:01Z | Scanner scale constraints | Pass – scale constraint unit tests and pipeline emission coverage. | `python -m pytest tests/test_scale_constraints.py tests/integration/test_scanner_pipeline_integration.py` |
 | 2026-05-21T00:45:00Z | Core workflow integration | Pass – P-Chem and EI-MS workflows wired through Run buttons and CLI wrappers; job lineage and dataset/audit IDs validated end-to-end. | `python -m pytest tests/test_workflow_pipeline.py tests/test_workflow_jobs_integration.py` |
 | 2026-05-21T00:35:00Z | Storage & audit stress | Pass – File-backed registries and JSONL audit log sustained repeated job runs without checksum drift or orphaned refs. | `python -m pytest tests/test_storage_in_memory.py tests/test_telemetry_logging.py` |
 | 2026-05-21T00:25:00Z | Import Wizard provenance | Pass – Import Wizard workflows preserved dataset/experiment linkage and ModuleRegistry metadata across calorimetry/EI-MS ingest paths. | `python -m pytest tests/test_import_calorimetry.py tests/test_import_provenance.py tests/test_module_registry.py` |
@@ -86,4 +87,3 @@ Document scientific validation activities once numerical or analytical logic shi
 ## 2025-12-07 20:58:56 -06:00 - local dev verification
 - [SUCCESS] Unit tests passed (32 test files)
 - [SUCCESS] Import checks passed
-
