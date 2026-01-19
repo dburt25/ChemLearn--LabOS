@@ -57,6 +57,47 @@ Docker configs preserved in `.archive/` for CI/deployment scenarios. Active deve
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
 - Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
 
+## Scanner anchoring (marker board)
+The scanner tooling adds a marker-board anchored world frame that yields true metric scale when intrinsics are provided. This is the first true metric path for SMALL_OBJECT regimes and requires calibrated intrinsics plus strict quality gating. See [`docs/board_printing.md`](docs/board_printing.md) for board printing guidance and [`docs/architecture.md`](docs/architecture.md) for the pipeline overview.
+
+Generate a board image:
+```bash
+scanner board generate \
+  --family aruco_4x4 \
+  --rows 4 \
+  --cols 6 \
+  --marker-size-m 0.03 \
+  --marker-spacing-m 0.006 \
+  --out out/board.png
+```
+
+Supply intrinsics and run the pipeline:
+```bash
+scanner pipeline \
+  --frames-dir data/frames \
+  --anchor marker_board \
+  --board-family aruco_4x4 \
+  --board-rows 4 \
+  --board-cols 6 \
+  --board-marker-size-m 0.03 \
+  --board-marker-spacing-m 0.006 \
+  --intrinsics-file data/camera.json \
+  --anchor-frame-step 2
+```
+
+Example `camera.json`:
+```json
+{
+  "fx": 500.0,
+  "fy": 500.0,
+  "cx": 320.0,
+  "cy": 240.0,
+  "dist": [0.1, -0.2, 0.0, 0.0, 0.01]
+}
+```
+
+**Metrology disclaimer:** Millimeter-level accuracy requires calibrated intrinsics, controlled capture, and verification of the printed board scale. The marker-board anchor provides a metric reference but does not guarantee measurement precision.
+
 ## Key documentation
 - Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)

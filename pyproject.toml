@@ -27,6 +27,10 @@ dependencies = [
 
 [project.scripts]
 labos = "labos.cli:main"
+scanner = "scanner.cli:main"
 
 [tool.setuptools]
-packages = ["labos", "labos.core", "labos.modules"]
+packages = ["labos", "labos.core", "labos.modules", "scanner"]
+
+[tool.setuptools.package-dir]
+scanner = "src/scanner"
