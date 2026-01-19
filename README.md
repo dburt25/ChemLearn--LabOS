@@ -57,6 +57,40 @@ Docker configs preserved in `.archive/` for CI/deployment scenarios. Active deve
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
 - Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
 
+## Anchors (v1)
+Anchors provide optional scale and origin hints for scanner reconstructions. Marker anchors target **small-object** scans by detecting fiducial markers, while geo/time anchors capture aerial metadata for future georegistration (no alignment is applied yet).
+
+**Marker anchors (implemented now)**
+- Detect ArUco markers across extracted frames to infer scale and origin candidates.
+- Requires `opencv-contrib-python` (for `cv2.aruco`). If unavailable, marker anchoring cleanly reports capability missing and falls back to existing scale/reference handling.
+- Current scope: detection and evidence capture; pose estimation uses provided camera intrinsics when available. No fake scale is applied without intrinsics.
+
+**Geo/time anchors (skeleton only)**
+- Stores latitude/longitude/altitude and ISO8601 timestamps for aerial scans.
+- No georegistration or temporal alignment is applied in v1.
+
+**CLI examples**
+- Marker anchor (small objects):
+  ```bash
+  python -m scanner.cli pipeline \\
+    --frames-dir /path/to/frames \\
+    --output-dir /path/to/output \\
+    --anchor marker \\
+    --marker-family aruco_4x4 \\
+    --marker-size-m 0.04 \\
+    --marker-ids "0,1,2,3" \\
+    --marker-frames-max 200
+  ```
+- Geo/time anchor (aerial skeleton):
+  ```bash
+  python -m scanner.cli pipeline \\
+    --frames-dir /path/to/frames \\
+    --output-dir /path/to/output \\
+    --anchor geo \\
+    --geo-anchor "37.420,-122.084,15" \\
+    --time-anchor "2025-01-02T03:04:05Z"
+  ```
+
 ## Key documentation
 - Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
