@@ -1,3 +1,4 @@
+"""Scanner package for 3D reconstruction utilities."""
 """Scanner tooling for 3D capture workflows."""
 
 from scanner.intrinsics import Intrinsics

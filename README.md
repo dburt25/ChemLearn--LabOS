@@ -46,6 +46,8 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
 - **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
 
+## 3D scanner reference frame (skeleton)
+Structure-from-Motion outputs are inherently arbitrary in origin, rotation, and scale until we apply explicit anchors. The new reference frame module introduces an explicit origin selection step with honest fallbacks: user-provided model-space origins, heuristic bounding-box centering, and placeholders for marker and geospatial anchors. Marker/GPS anchoring is recorded but not yet applied in v1, and aerial regimes only log warnings when falling back to heuristics.
 ## Scanner anchoring (experimental)
 - Marker-board anchoring is the first true metric path for SMALL_OBJECT scanning because the board + calibrated intrinsics provide scale, origin, and orientation.
 - **Metrology disclaimer:** millimeter-level accuracy requires calibrated intrinsics, controlled capture, and verification against known measurements. The anchor gates record reprojection quality but do not replace validation.
