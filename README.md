@@ -46,6 +46,25 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
 - **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
 
+## Scanner anchoring (experimental)
+- Marker-board anchoring is the first true metric path for SMALL_OBJECT scanning because the board + calibrated intrinsics provide scale, origin, and orientation.
+- **Metrology disclaimer:** millimeter-level accuracy requires calibrated intrinsics, controlled capture, and verification against known measurements. The anchor gates record reprojection quality but do not replace validation.
+## Scale & Units (3D Scanner Workflows)
+Structure-from-motion and multi-view reconstruction are scale ambiguous: without a reference, the same geometry can represent centimeters or kilometers. The scanner pipeline adds explicit scale constraints so reconstructions do not drift into absurd units.
+
+**How scale is constrained**
+- Choose a scan regime (`small_object`, `room`, or `aerial`) to define expected size and absolute hard bounds.
+- Provide a user reference when possible (distance pairs or known object size).
+- When no reference is provided, the system reports LOW confidence and marks outputs as unscaled.
+
+**User references**
+- `--ref-distance-m` with `--ref-pair "x1,y1,z1:x2,y2,z2"` to supply a known distance in model coordinates.
+- `--ref-scale-factor` as an expert-only override (logged as a warning).
+
+**Precision disclaimer**
+- The scale constraint system is a guardrail against nonsense units. It does **not** claim metrology accuracy.
+- Extremely tight tolerances (e.g., 0.01 mm) require a dedicated, explicit metrology workflow.
+
 ## Docker setup (archived)
 Docker configs preserved in `.archive/` for CI/deployment scenarios. Active development uses local `.venv` for speed.
 
@@ -56,11 +75,54 @@ Docker configs preserved in `.archive/` for CI/deployment scenarios. Active deve
 ## CLI usage
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
 - Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
+- Scanner CLI: use `scanner board generate` to build marker boards and `scanner pipeline` for marker-board anchored scans (see `docs/board_printing.md` and `docs/architecture.md`).
+
+## Scanner anchoring (marker board)
+The scanner tooling adds a marker-board anchored world frame that yields true metric scale when intrinsics are provided. This is the first true metric path for SMALL_OBJECT regimes and requires calibrated intrinsics plus strict quality gating. See [`docs/board_printing.md`](docs/board_printing.md) for board printing guidance and [`docs/architecture.md`](docs/architecture.md) for the pipeline overview.
+
+Generate a board image:
+```bash
+scanner board generate \
+  --family aruco_4x4 \
+  --rows 4 \
+  --cols 6 \
+  --marker-size-m 0.03 \
+  --marker-spacing-m 0.006 \
+  --out out/board.png
+```
+
+Supply intrinsics and run the pipeline:
+```bash
+scanner pipeline \
+  --frames-dir data/frames \
+  --anchor marker_board \
+  --board-family aruco_4x4 \
+  --board-rows 4 \
+  --board-cols 6 \
+  --board-marker-size-m 0.03 \
+  --board-marker-spacing-m 0.006 \
+  --intrinsics-file data/camera.json \
+  --anchor-frame-step 2
+```
+
+Example `camera.json`:
+```json
+{
+  "fx": 500.0,
+  "fy": 500.0,
+  "cx": 320.0,
+  "cy": 240.0,
+  "dist": [0.1, -0.2, 0.0, 0.0, 0.01]
+}
+```
+
+**Metrology disclaimer:** Millimeter-level accuracy requires calibrated intrinsics, controlled capture, and verification of the printed board scale. The marker-board anchor provides a metric reference but does not guarantee measurement precision.
 
 ## Key documentation
 - Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
 - Architecture and modules: [`docs/README_ARCHITECTURE.md`](docs/README_ARCHITECTURE.md), [`docs/MODULARITY_GUIDELINES.md`](docs/MODULARITY_GUIDELINES.md)
+- Scanner anchoring: [`docs/architecture.md`](docs/architecture.md), [`docs/board_printing.md`](docs/board_printing.md)
 - Phase/state snapshots: [`docs/SWARM_STATUS.md`](docs/SWARM_STATUS.md), [`docs/PHASES_OVERVIEW.md`](docs/PHASES_OVERVIEW.md), [`docs/CURRENT_CAPABILITIES.md`](docs/CURRENT_CAPABILITIES.md)
 - Scanner calibration: [`docs/calibration.md`](docs/calibration.md), [`docs/anchors_v2.md`](docs/anchors_v2.md)
 - Swarm governance & permissions: [`docs/SWARM_GOVERNANCE.md`](docs/SWARM_GOVERNANCE.md), [`docs/BOT_PERMISSIONS_MATRIX.md`](docs/BOT_PERMISSIONS_MATRIX.md)
