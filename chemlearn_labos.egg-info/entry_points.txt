@@ -1,2 +1,3 @@
 [console_scripts]
 labos = labos.cli:main
+scanner = scanner.cli:main

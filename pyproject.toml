@@ -34,6 +34,10 @@ labos = "labos.cli:main"
 scanner = "scanner.cli:main"
 
 [tool.setuptools]
+packages = ["labos", "labos.core", "labos.modules", "scanner", "scanner.calibration"]
+package-dir = {"" = ".", "scanner" = "src/scanner"}
+
+[tool.setuptools]
 packages = ["labos", "labos.core", "labos.modules", "scanner"]
 
 [tool.setuptools.package-dir]

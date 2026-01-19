@@ -1,3 +1,8 @@
+"""Scanner tooling for 3D capture workflows."""
+
+from scanner.intrinsics import Intrinsics
+
+__all__ = ["Intrinsics"]
 """Marker-board anchored scanning utilities."""
 """Scanner package for marker-board anchoring workflows."""
 
