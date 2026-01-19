@@ -32,6 +32,12 @@ package-dir = { "scanner" = "src/scanner" }
 [project.scripts]
 labos = "labos.cli:main"
 scanner = "scanner.cli:main"
+
+[tool.setuptools]
+packages = ["labos", "labos.core", "labos.modules", "scanner"]
+
+[tool.setuptools.package-dir]
+scanner = "src/scanner"
 scanner = "src.scanner.cli:main"
 
 [tool.setuptools]

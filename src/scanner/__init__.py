@@ -1,3 +1,4 @@
+"""Marker-board anchored scanning utilities."""
 """Scanner package for marker-board anchoring workflows."""
 
 from scanner.anchors import AnchorResult, AnchorType
@@ -9,6 +10,9 @@ __all__ = [
     "AnchorResult",
     "AnchorType",
     "BoardSpec",
+    "Intrinsics",
+    "MarkerFamily",
+]
     "MarkerFamily",
     "Intrinsics",
     "QualityGateConfig",
