@@ -46,6 +46,9 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
 - **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
 
+## Origin & Focal Point (Scanner Reference Frame)
+Structure-from-motion outputs use an arbitrary coordinate system. The scanner reference frame stage defines a scene origin so centered outputs are consistent across exports. This is a structural skeleton only: geo anchoring and marker-based alignment are accepted as inputs but not yet applied. Centering translates point clouds so the selected origin becomes `(0, 0, 0)` after scaling, and reference-frame metadata is embedded in `run.json` and `reconstruction_metrics.json` for auditability.
+
 ## Docker setup (archived)
 Docker configs preserved in `.archive/` for CI/deployment scenarios. Active development uses local `.venv` for speed.
 
