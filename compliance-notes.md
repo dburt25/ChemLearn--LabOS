@@ -15,6 +15,7 @@
 - Reinforce provenance capture across module registry entries (method source, dataset lineage, versioned configs).
 - Emphasize DatasetRef + AuditEvent usage to preserve ALCOA-compliant trails for transformations and outputs.
 - Keep all outputs labeled research/education-only; future clinical considerations must remain clearly non-clinical for now.
+- Scanner scale constraints are guardrails only; they do not imply metrology-grade precision and must remain explicit about confidence.
 
 ## Source Attribution & Licensing
 - Cite external methods/datasets with persistent identifiers (DOI/URL) and list license terms where available.
