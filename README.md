@@ -10,6 +10,9 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 
 > External API and ML integrations remain stubs in this phase, and the project is intended for educational/research use only—not for clinical workflows.
 
+## 3D scanner reference frame (skeleton)
+Structure-from-motion pipelines produce point clouds with arbitrary origin/rotation/scale. LabOS now includes a scanner reference-frame skeleton that lets you supply an explicit origin, or fall back to a bounding-box center when heuristics are enabled. Marker and geospatial anchors are accepted and recorded but are not yet applied to geometry; aerial anchoring is explicitly a placeholder in v1. See `docs/architecture.md` for the reference-frame data model and future hooks.【F:docs/architecture.md†L1-L66】
+
 ## Getting started
 1. **Create and activate a virtual environment (Python 3.10+)**
    ```powershell

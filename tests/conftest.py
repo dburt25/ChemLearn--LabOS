@@ -12,3 +12,8 @@ if PROJECT_ROOT.exists():
     root_str = str(PROJECT_ROOT)
     if root_str not in sys.path:
         sys.path.insert(0, root_str)
+    src_path = PROJECT_ROOT / "src"
+    if src_path.exists():
+        src_str = str(src_path)
+        if src_str not in sys.path:
+            sys.path.insert(0, src_str)
