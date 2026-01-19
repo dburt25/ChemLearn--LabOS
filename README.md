@@ -46,6 +46,9 @@ ChemLearn LabOS is a faith-aligned laboratory operating system that coordinates 
 - **data/** – Local storage root for registries, audit logs, and job outputs created by the CLI and workflows.
 - **tests/** – Coverage for registries, workflows, and module stubs to keep the skeleton stable during hardening.
 
+## Scanner anchoring (experimental)
+- Marker-board anchoring is the first true metric path for SMALL_OBJECT scanning because the board + calibrated intrinsics provide scale, origin, and orientation.
+- **Metrology disclaimer:** millimeter-level accuracy requires calibrated intrinsics, controlled capture, and verification against known measurements. The anchor gates record reprojection quality but do not replace validation.
 ## Scale & Units (3D Scanner Workflows)
 Structure-from-motion and multi-view reconstruction are scale ambiguous: without a reference, the same geometry can represent centimeters or kilometers. The scanner pipeline adds explicit scale constraints so reconstructions do not drift into absurd units.
 
@@ -72,11 +75,13 @@ Docker configs preserved in `.archive/` for CI/deployment scenarios. Active deve
 ## CLI usage
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
 - Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
+- Scanner CLI: use `scanner board generate` to build marker boards and `scanner pipeline` for marker-board anchored scans (see `docs/board_printing.md` and `docs/architecture.md`).
 
 ## Key documentation
 - Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
 - Architecture and modules: [`docs/README_ARCHITECTURE.md`](docs/README_ARCHITECTURE.md), [`docs/MODULARITY_GUIDELINES.md`](docs/MODULARITY_GUIDELINES.md)
+- Scanner anchoring: [`docs/architecture.md`](docs/architecture.md), [`docs/board_printing.md`](docs/board_printing.md)
 - Phase/state snapshots: [`docs/SWARM_STATUS.md`](docs/SWARM_STATUS.md), [`docs/PHASES_OVERVIEW.md`](docs/PHASES_OVERVIEW.md), [`docs/CURRENT_CAPABILITIES.md`](docs/CURRENT_CAPABILITIES.md)
 - Swarm governance & permissions: [`docs/SWARM_GOVERNANCE.md`](docs/SWARM_GOVERNANCE.md), [`docs/BOT_PERMISSIONS_MATRIX.md`](docs/BOT_PERMISSIONS_MATRIX.md)
 - Compliance and provenance: [`docs/COMPLIANCE_CHECKLIST.md`](docs/COMPLIANCE_CHECKLIST.md), [`docs/METHOD_AND_DATA.md`](docs/METHOD_AND_DATA.md), [`docs/AUDIT_LOG_FORMAT.md`](docs/AUDIT_LOG_FORMAT.md)
