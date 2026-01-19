@@ -57,6 +57,37 @@ Docker configs preserved in `.archive/` for CI/deployment scenarios. Active deve
 - Persistent CLI: see [`docs/cli/USAGE.md`](docs/cli/USAGE.md) for `labos` commands that manage on-disk experiments, datasets, and jobs.
 - Demo CLI: run `python -m labos.cli.main` commands to explore in-memory examples without touching storage.
 
+## Anchors (v1)
+Anchors provide scale and/or origin hints for 3D scans. Marker anchors are the practical v1 feature for small-object scans; geo/time anchors are stored for future aerial scan alignment but are not yet applied.
+
+**Marker anchors**
+- Require OpenCV with the ArUco module: `pip install opencv-contrib-python`.
+- Detects marker IDs and pixel corners across extracted frames.
+- If camera intrinsics are missing, marker detections are recorded but scale is not applied.
+
+**Geo/time anchors (skeleton)**
+- Captures latitude/longitude/altitude and timestamp for later georegistration.
+- No georegistration is performed in v1.
+
+**CLI examples**
+```bash
+python -m scanner.cli pipeline \\
+  --frames-dir data/frames \\
+  --output-dir data/run \\
+  --anchor marker \\
+  --marker-family aruco_4x4 \\
+  --marker-size-m 0.02 \\
+  --marker-ids "0,1,2" \\
+  --marker-frames-max 120
+
+python -m scanner.cli pipeline \\
+  --frames-dir data/frames \\
+  --output-dir data/run \\
+  --anchor geo \\
+  --geo-anchor "37.423,-122.084,15" \\
+  --time-anchor "2024-06-18T19:20:30Z"
+```
+
 ## Key documentation
 - Project direction: [`docs/VISION.md`](docs/VISION.md), [`docs/DEVELOPMENT_VISION_GUIDE.md`](docs/DEVELOPMENT_VISION_GUIDE.md)
 - Developer workflow & on-ramp: [`DEVELOPMENT_GUIDE.md`](DEVELOPMENT_GUIDE.md)
